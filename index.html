@@ -56,7 +56,7 @@ time:{n:'Time Slow',a:1,cd:20,tag:'c',rare:1,d:'CHEAT: world at 25% speed, 5s'},
 iron:{n:'Iron Skin',tag:'w',d:'+20 HP, take 15% less dmg'},
 swift:{n:'Swiftness',tag:'r',d:'+20% speed, faster rolls'},
 blood:{n:'Bloodlust',tag:'w',d:'Heal on kill'},
-treasure:{n:'Treasure Sense',tag:'r',d:'Much higher potion drops'},
+treasure:{n:'Treasure Sense',tag:'r',ty:'Passive Luck Loot',d:'All loot tables unlocked from floor 1 (Lesser below level) + more potions'},
 choke:{n:'Chokepoint Instinct',tag:'w',d:'+15% damage'},
 berserk:{n:'Berserker',tag:'w',d:'Up to +60% dmg at low HP'},
 luck:{n:'Unbound Luck',tag:'c',rare:1,d:'CHEAT: +25 luck, crits x2.5'},
@@ -218,7 +218,7 @@ const MATC={'Bones':'#e8e2d0','Chitin':'#a8642a','Ectoplasm':'#8fe8d0','Venom Sa
  'Lich Core':'#9fd','Brood Core':'#c74','Chimera Mane':'#d84','Basilisk Eye':'#bf4','Minotaur Horn':'#ddc','Wyvern Scale':'#48a','Hydra Scale':'#2a8','Queen Crown':'#ef6'};
 const CORES=['Lich Core','Brood Core','Chimera Mane','Basilisk Eye','Minotaur Horn','Wyvern Scale','Hydra Scale','Queen Crown'];
 const EDROP={ghoul:['Bones','Bones','Iron Ore'],centipede:['Chitin','Chitin','Iron Ore'],wraith:['Ectoplasm','Frost Crystal'],bug:['Chitin'],mantis:['Venom Sac','Chitin','Storm Shard']};
-const TIERS=[['Common','#ccc',1],['Uncommon','#6f6',1.25],['Rare','#6af',1.55],['Epic','#c6f',1.9],['Legendary','#fa3',2.5]];
+const TIERS=[['Normal','#d8d8d8',1],['Magic','#6fa8ff',1.2],['Rare','#ffe14d',1.45],['Unique','#ff9a2e',1.8],['Set','#4fe36a',1.7]];
 function tierRoll(b){const r=Math.random()*100+G.p.luck*1.6+(b||0);return r>125?4:r>100?3:r>78?2:r>50?1:0}
 function addMat(n,c){const m=G.p.box.mats;m[n]=(m[n]||0)+(c||1)}
 function hasMats(req){const m=G.p.box.mats;for(const k in req)if((m[k]||0)<req[k])return false;return true}
@@ -1234,6 +1234,126 @@ const _bp15=btnPress;btnPress=function(b,down){if(b.k=='map'){if(down)MINI.full=
 // AI: bigger maps
 AI.big=1;
 
+// ===== v16 LOOT: Diablo/PoE style
+const RAR=['Normal','Magic','Rare','Unique','Set'];
+const CBRAR=[['Normal','#e0e0e0'],['Magic','#56b4e9'],['Rare','#f0e442'],['Unique','#e69f00'],['Set','#009e73']];
+function rarCol(t){return setv('cbRar',false)?CBRAR[t][1]:TIERS[t][1]}
+function ilvlNow(e){return (G.floor+1)*5+(e&&e.elite?2:0)+(e&&e.mini?3:0)+(e&&e.boss?5:0)}
+// affixes: [key, prefix?, name, base, perLvl]
+const AFF=[['atk',1,'Cruel',2,.55],['def',1,'Sturdy',2,.5],['hp',1,'Vital',8,2.4],['spd',1,'Fleet',3,.12],['mag',1,'Arcane',4,.4],['eld',1,'Elemental',5,.45],
+ ['luck',0,'of Fortune',3,.3],['crit',0,'of Precision',2,.18],['as',0,'of Haste',3,.2],['ls',0,'of the Leech',1,.12],['regen',0,'of Mending',.4,.05],['mres',0,'of Warding',3,.25],['dodge',0,'of Evasion',2,.15],['cdr',0,'of Alacrity',2,.12],['stealth',0,'of Shadows',2,.1]];
+const AFT=['I','II','III','IV','V'];
+function rollAff(it,il,n){it.aff=it.aff||[];const pre=it.aff.filter(a=>a.p).length,suf=it.aff.length-pre;
+ for(let i=0;i<n;i++){const pool=AFF.filter(a=>!it.aff.some(b=>b.k==a[0])&&(a[1]?pre+it.aff.filter(b=>b.p).length-pre<3:it.aff.filter(b=>!b.p).length<3));if(!pool.length)break;const a=pool[ri(0,pool.length-1)];
+  const tier=Math.max(0,Math.min(4,Math.floor(il/9)+ri(-1,0))),v=(a[3]+a[4]*il)*(0.75+Math.random()*.5)*(1+tier*.1);const val=a[0]=='regen'?Math.round(v*10)/10:Math.max(1,Math.round(v));
+  it.aff.push({k:a[0],p:a[1],nm:a[2],t:tier,v:val});it[a[0]]=(it[a[0]]||0)+val}}
+function rollRarity(bonus,boss){const L=G.p.luck,m=(1+L/100)*(has('treasure')?1.25:1)*(bonus||1);const r=Math.random();
+ if(boss)return r<.12*m?3:r<.2*m?4:2;
+ if(r<.008*m)return 3;if(r<.014*m)return 4;if(r<.06*m)return 2;if(r<.28*m)return 1;return 0}
+const RNAME1=['Grim','Dusk','Bone','Storm','Rune','Hollow','Ember','Gloom','Viper','Oath','Wraith','Iron'],RNAME2=['Bite','Ward','Shroud','Song','Grasp','Coil','Fang','Veil','Mark','Spire','Hymn','Knot'];
+// uniques (boss-exclusive by floor) & sets
+const UNIQ=[{n:"Lich's Phylactery",slot:'ear',type:'earring',f:0,ux:'phyl',d:'On kill: heal 4% HP, +10% magic',st:{mag:12,mres:8}},
+ {n:"Broodmother's Embrace",slot:'body',type:'leather',f:1,ux:'brood',d:'Attackers are poisoned',st:{hp:40,def:8}},
+ {n:'Chimera Mane',slot:'cloak',type:'mantle',f:2,ux:'mane',d:'20% chance to burn attackers',st:{dodge:6,mres:10}},
+ {n:'Basilisk Eye',slot:'ring',type:'ring',f:3,ux:'petrify',d:'10% on hit: stun 1s',st:{crit:6,luck:6}},
+ {n:"Minotaur's Grip",slot:'arms',type:'gauntlets',f:4,ux:'grip',d:'Double knockback, +25% damage vs bosses',st:{atk:10,as:6}},
+ {n:'Wyvern Spurs',slot:'feet',type:'boots',f:5,ux:'spurs',d:'After a roll: +30% speed for 2s',st:{spd:10,dodge:5}},
+ {n:'Hydra Fang',slot:'weapon',type:'dagger',f:6,ux:'hydra',d:'Hits strike 2 extra nearby foes',st:{atk:16,crit:8}},
+ {n:'Ruinous Edge',slot:'weapon',type:'sword',f:7,ux:'ruin',d:'Critical hits explode',st:{atk:22,crit:10}}];
+const SETS={hero:{n:'Discarded Hero',pieces:[['head','helm',"Discarded Hero's Helm"],['body','plate',"Discarded Hero's Plate"],['feet','boots',"Discarded Hero's Treads"]],b2:'+15% max HP',b3:'+20% damage, +10 luck'},
+ moon:{n:'Moonlit Blue',pieces:[['ring','ring','Moonlit Band'],['ear','earring','Moonlit Teardrop'],['cloak','cloak','Moonlit Shawl']],b2:'+10% crit',b3:'+3 HP/s regen, +1 riposte charge per parry'}};
+const SETL=[];for(const k in SETS)for(const p of SETS[k].pieces)SETL.push([k,...p]);
+function lesserScale(it,req,il){if(il>=req)return it;const f=Math.max(.35,il/req);for(const k of Object.keys(STN))if(it[k])it[k]=k=='regen'?Math.round(it[k]*f*10)/10:Math.max(1,Math.round(it[k]*f));for(const a of it.aff||[]){a.v=Math.max(1,Math.round(a.v*f));a.t=Math.max(0,a.t-1)}it.lesser=1;it.n='Lesser '+it.n;return it}
+const _mk16=mkGear;mkGear=function(slot,lvl,el,opt){opt=opt||{};const il=opt.il||Math.max(1,lvl*5);let rar=opt.rar!=null?opt.rar:rollRarity(opt.bonus,opt.boss);
+ if(rar==3){let pool=UNIQ.filter(u=>has('treasure')||u.f<=G.floor);if(opt.boss&&opt.uniqF!=null&&Math.random()<.4)pool=UNIQ.filter(u=>u.f==opt.uniqF);if(!pool.length)rar=2;else{const u=pool[ri(0,pool.length-1)];const it={n:u.n,type:u.type,slot:u.slot,tier:3,el:el||null,fx:[],ux:u.ux,ud:u.d,uniq:1};Object.assign(it,gearStats(u.type,lvl,1,[],null));for(const k in u.st)it[k]=(it[k]||0)+u.st[k];rollAff(it,il,2);return lesserScale(it,(u.f+1)*5+5,il)}}
+ if(rar==4){const pool=SETL.filter((s,i)=>has('treasure')||i%3<=G.floor/2);const s=pool[ri(0,pool.length-1)];const it={n:s[3],type:s[2],slot:s[1],tier:4,el:null,fx:[],set:s[0]};Object.assign(it,gearStats(s[2],lvl,1.15,[],null));rollAff(it,il,2);return lesserScale(it,10,il)}
+ const it=_mk16(slot,lvl,el);for(const k of Object.keys(STN))delete it[k];if(opt.slot)it.slot=opt.slot;Object.assign(it,gearStats(it.type,lvl,1,[],el));it.tier=rar;it.aff=[];
+ const base=it.type[0].toUpperCase()+it.type.slice(1);
+ if(rar==1){rollAff(it,il,ri(1,2));const pr=it.aff.find(a=>a.p),su=it.aff.find(a=>!a.p);it.n=(pr?pr.nm+' ':'')+base+(su?' '+su.nm:'')}
+ else if(rar==2){rollAff(it,il,ri(3,5));it.n=RNAME1[ri(0,11)]+' '+RNAME2[ri(0,11)]+' ('+base+')'}
+ else it.n=base;it.il=il;return it};
+// per-monster slot tables
+const ESLOT={ghoul:['body','arms','weapon'],centipede:['legs','feet','body'],wraith:['ear','ring','cloak'],bug:['head','body','legs'],mantis:['weapon','arms','head'],rogue:['weapon','ring','cloak'],archer:['weapon','ring','feet'],brute:['body','arms','weapon'],mimic:['ring','ear','weapon']};
+function slotFor(e){const L=ESLOT[e&&e.ty]||null;const s=L?L[ri(0,L.length-1)]:['weapon','armor','acc'][ri(0,2)];return s=='ring'||s=='ear'||s=='cloak'||s=='weapon'?s:s}
+function mkFor(e,boss){const s=slotFor(e);const sl=['weapon','ring','ear','cloak'].includes(s)?(s=='weapon'?'weapon':s=='cloak'?'armor':'acc'):'armor';const it=mkGear(sl,G.floor+(boss?3:1),null,{il:ilvlNow(e),boss,uniqF:boss?G.floor:null});return it}
+// replace drops
+dropMats=function(e){const p=G.p;const b0=p.box.items.length;
+ if(e.boss){addMat(CORES[G.floor]);addMat('Iron Ore',2);for(let i=0;i<2;i++)p.box.items.push(mkFor(e,true));if(Math.random()<.5)p.box.items.push(mkGear('armor',G.floor+3,null,{il:ilvlNow(e)}));dropGold(e,8);dropOrb(e,1);flash(e.n+' dropped '+CORES[G.floor]+' + rare loot!')}
+ else{const L=EDROP[e.ty]||['Bones'];if(Math.random()<Math.min(.95,.5+p.luck/90))addMat(L[ri(0,L.length-1)],1+(Math.random()<p.luck/80?1:0));
+  const gc=(.035+p.luck/400)*(e.elite?3:1)*(e.mini?6:1);if(Math.random()<gc)p.box.items.push(mkFor(e,false));if(Math.random()<.45)dropGold(e,1);if(Math.random()<.025*(e.elite?3:1)*(1+p.luck/100))dropOrb(e,0);
+  if(has('treasure')&&Math.random()<.06){const c=CORES[ri(0,CORES.length-1)],ci=CORES.indexOf(c);addMat(ci>G.floor?'Lesser '+c:c)}}
+ for(let i=b0;i<p.box.items.length;i++){const it=p.box.items[i];if(setv('hideNormal',false)&&it.tier==0){p.box.items.splice(i,1);i--;addMat('Iron Ore',1);continue}beam(e.x,e.y,it)}};
+function dropGold(e,mult){const v=Math.round((3+G.floor*3)*(mult||1)*rnd(.6,1.6)*(1+G.p.luck/150));G.items.push({x:e.x+rnd(-14,14),y:e.y+rnd(-10,10),k:'gold',v})}
+const ORBS={trans:['Orb of Transmutation','Normal -> Magic','#9cf'],alch:['Orb of Alchemy','Normal -> Rare','#fd6'],chaos:['Chaos Orb','Reroll a Rare','#f8a'],exalt:['Exalted Orb','Add an affix to Rare','#fff']};
+function dropOrb(e,q){const ks=Object.keys(ORBS),r=Math.random();const k=q?ks[ri(1,3)]:r<.55?'trans':r<.8?'alch':r<.95?'chaos':'exalt';G.items.push({x:e.x+rnd(-12,12),y:e.y+rnd(-12,12),k:'orb',o:k})}
+function applyOrb(it,o){if(!it||!SLOTOF[it.type])return'Not gear';const il=it.il||ilvlNow();const strip=()=>{for(const a of it.aff||[])it[a.k]=Math.max(0,(it[a.k]||0)-a.v);it.aff=[]};
+ if(o=='trans'){if(it.tier!=0)return'Needs a Normal item';it.tier=1;rollAff(it,il,ri(1,2));it.n='Magic '+it.n}
+ else if(o=='alch'){if(it.tier!=0)return'Needs a Normal item';it.tier=2;rollAff(it,il,ri(3,5));it.n=RNAME1[ri(0,11)]+' '+RNAME2[ri(0,11)]+' ('+it.type+')'}
+ else if(o=='chaos'){if(it.tier!=2)return'Needs a Rare item';strip();rollAff(it,il,ri(3,5))}
+ else if(o=='exalt'){if(it.tier!=2)return'Needs a Rare item';if((it.aff||[]).length>=6)return'Already 6 affixes';rollAff(it,il,1)}
+ G.p.orbs[o]--;recalc();sfx('level');return ORBS[o][0]+' used on '+it.n}
+// pickups (gold/orbs), before base potion pickup
+const _up16=update;update=function(dt){if(G&&G.p&&state=='play'&&G.items){const p=G.p;p.orbs=p.orbs||{};G.items=G.items.filter(i=>{if(!i.k)return true;const d=dist(i,p);if(d<70){i.x+=(p.x-i.x)*Math.min(1,dt*8);i.y+=(p.y-i.y)*Math.min(1,dt*8)}if(d<22){if(i.k=='gold'){p.gold=(p.gold||0)+i.v;G.parts.push({x:p.x,y:p.y-30,t:.7,txt:'+'+i.v+'g',c:'#fd6'});sfx('pickup')}else{p.orbs[i.o]=(p.orbs[i.o]||0)+1;flash(ORBS[i.o][0]+'!');sfx('level')}return false}return true})}_up16(dt)};
+const _de16=drawEv;drawEv=function(t,seen){_de16(t,seen);for(const i of G.items||[]){if(!i.k||!seen(i))continue;if(i.k=='gold'){X.fillStyle='#e8b830';for(let j=0;j<4;j++){X.beginPath();X.ellipse(i.x+(j%2)*5-2,i.y-(j>>1)*3,4,2.5,0,0,7);X.fill()}X.fillStyle='#fff6';X.fillRect(i.x-1,i.y-4,2,1)}
+ else{const c=ORBS[i.o][2];const g=X.createRadialGradient(i.x,i.y-6,0,i.x,i.y-6,12);g.addColorStop(0,'#fff');g.addColorStop(.3,c);g.addColorStop(1,'rgba(0,0,0,0)');X.fillStyle=g;X.beginPath();X.arc(i.x,i.y-6,12,0,7);X.fill()}}};
+// AI picks up gold/orbs too (they're in G.items; AI already walks to items)
+// unique & set effects
+const _rc16=recalc;recalc=function(){_rc16();const p=G.p;const cnt={};for(const k in p.eq){const it=p.eq[k];if(it&&it.set)cnt[it.set]=(cnt[it.set]||0)+1}p.setc=cnt;
+ if(cnt.hero>=2)p.mhp=Math.round(p.mhp*1.15);if(cnt.hero>=3){p.atk=Math.round(p.atk*1.2);p.luck+=10}if(cnt.moon>=2)p.crit=(p.crit||0)+10;if(cnt.moon>=3)p.regen=(p.regen||0)+3;
+ p.ux={};for(const k in p.eq){const it=p.eq[k];if(it&&it.ux)p.ux[it.ux]=1}if(p.hp>p.mhp)p.hp=p.mhp};
+const _hit16=hit;hit=function(e,dm,crit){const p=G.p,U=p.ux||{};if(U.grip&&e.boss)dm*=1.25;_hit16(e,dm,crit);
+ if(U.petrify&&Math.random()<.1)applyS(e,'sn',1);if(U.grip&&!e.boss&&e.kb){e.kb.x*=2;e.kb.y*=2}
+ if(U.ruin&&crit&&!G.inRuin){G.inRuin=1;boom(e.x,e.y,50,.8);G.inRuin=0}
+ if(U.hydra&&!G.inHy){G.inHy=1;let n=0;for(const o of G.ens)if(o!==e&&n<2&&dist(o,e)<70){hit(o,dm*.5,false);n++}G.inHy=0}
+ if(e.hp<=0&&U.phyl)p.hp=Math.min(p.mhp,p.hp+p.mhp*.04)};
+const _hu16=hurt;hurt=function(d,src,shot){const p=G.p,U=p.ux||{},h0=p.hp;_hu16(d,src,shot);if(p.hp<h0&&src&&src.hp){if(U.brood)applyS(src,'po',2);if(U.mane&&Math.random()<.2)applyS(src,'bu',2)}};
+const _pt16=parryTry;parryTry=function(d,src,shot){const r=_pt16(d,src,shot);if(r&&G.p.setc&&G.p.setc.moon>=3)G.p.rip=Math.min(5,(G.p.rip||0)+1);return r};
+// lesser materials in crafting
+const _hm16=hasMats;hasMats=function(req){const m=G.p.box.mats;for(const k in req)if((m[k]||0)+(m['Lesser '+k]||0)<req[k])return false;return true};
+useMats=function(req){const m=G.p.box.mats;for(const k in req){let n=req[k];const a=Math.min(n,m[k]||0);m[k]=(m[k]||0)-a;n-=a;if(n>0){m['Lesser '+k]-=n;G.lesserUsed=1}}};
+const _ci16=craftIdea;craftIdea=function(o){G.lesserUsed=0;const r=_ci16(o);if(r&&G.lesserUsed&&r.slot){r.tier=Math.max(0,(r.tier||0)-1);for(const k of Object.keys(STN))if(r[k])r[k]=Math.max(1,Math.round(r[k]*.8));r.n+=' (Lesser mats)'}G.lesserUsed=0;return r};
+for(const c of CORES)MATC['Lesser '+c]='#9a8';
+// shop random gear uses magic+ odds; K-menu odds
+function oddsTxt(){const L=G.p.luck,m=(1+L/100)*(has('treasure')?1.25:1);const pc=x=>(Math.min(100,x*100)).toFixed(1)+'%';return 'Loot odds per gear drop (Luck '+L+'): Magic '+pc(.22*m)+'  Rare '+pc(.046*m)+'  Unique '+pc(.008*m)+'  Set '+pc(.006*m)+(has('treasure')?'  | TREASURE SENSE: all uniques/sets/boss mats can drop now (Lesser below level)':'  | uniques/sets unlock by floor')}
+const _dr16=draw;draw=function(t){_dr16(t);if(state=='menu'&&G&&G.p){X.fillStyle='rgba(0,0,0,.85)';X.fillRect(80,H-112,W-160,22);txt(oddsTxt(),W/2,H-96,11,'#fd8')}};
+// Item Box: orb bar + affix tooltip
+const _di16=drawInv;drawInv=function(t){_di16(t);const p=G.p;if(INV.tab!='box')return;p.orbs=p.orbs||{};const x0=W-470;let x=x0;txt('Orbs (pick, then click gear):',x0,H-86,12,'#cde','left');
+ Object.keys(ORBS).forEach((k,i)=>{const n=p.orbs[k]||0,sel=INV.orb==k;btn(x0+i*110,H-78,104,40,(n?'':'')+ORBS[k][0].split(' ').pop()+' x'+n,()=>{INV.orb=sel||!n?null:k;INV.res=INV.orb?ORBS[k][1]+' - click a gear item':''},{sz:11,fill:sel?'#3a4a7a':null,stroke:ORBS[k][2]})})};
+const _eq16=equip;equip=function(i,to){const p=G.p;if(state=='inv'&&INV.orb&&INV.tab=='box'){const it=p.box.items[i];INV.res=applyOrb(it,INV.orb);if(!(p.orbs[INV.orb]>0))INV.orb=null;return}return _eq16(i,to)};
+// affix lines in compare tooltip
+const _dc16=drawCompare;drawCompare=function(cur,nw,x,y){_dc16(cur,nw,x,y);const it=nw||cur;const lines=[];if(it.uniq)lines.push(['UNIQUE: '+it.ud,'#ff9a2e']);if(it.set){const S=SETS[it.set];lines.push(['SET '+S.n+' ('+((G.p.setc||{})[it.set]||0)+'/3): 2pc '+S.b2+'; 3pc '+S.b3,'#4fe36a'])}if(it.lesser)lines.push(['Lesser (found below its level)','#aaa']);
+ for(const a of it.aff||[])lines.push([(a.p?'Prefix ':'Suffix ')+a.nm+' T'+AFT[a.t]+': +'+a.v+' '+STN[a.k],'#9bf']);if(!lines.length)return;const h=lines.length*15+8;X.fillStyle='rgba(10,12,28,.97)';X.fillRect(x,y-h-2,360,h);X.strokeStyle=rarCol(it.tier||0);X.strokeRect(x,y-h-2,360,h);lines.forEach((l,i)=>txt(l[0].slice(0,58),x+8,y-h+12+i*15,11,l[1],'left'))};
+// colored names everywhere: TIERS color follows colorblind option
+const _ic16=itemIcon;itemIcon=function(it,x,y,s){_ic16(it,x,y,s);if(setv('cbRar',false)&&it&&it.tier!=null&&SLOTOF[it.type]){X.save();X.font='bold '+Math.round(s*.32)+'px monospace';X.fillStyle='#000';X.fillRect(x+s/2-s*.36,y-s/2,s*.36,s*.34);X.fillStyle=CBRAR[it.tier][1];X.textAlign='center';X.fillText('NMRUS'[it.tier],x+s/2-s*.18,y-s/2+s*.28);X.restore()}};
+SAVEK.push('orbs');
+
+// ===== v17 PAUSE MENU (priority)
+const PM={view:'main',msg:''};
+function openPause(){if(state!='play')return;state='pause';PM.view='main';PM.msg='';aiClear&&aiClear();for(const k of ['KeyW','KeyA','KeyS','KeyD'])K[k]=0;TS.joy=null;TS.atk=false}
+function resume(){state='play'}
+function nearSave(){const p=G.p,L=[];if(G.bed)L.push(['Bed (safe room)',G.bed]);if(G.wp)L.push(['Waypoint',G.wp]);let b=null;for(const [n,o] of L){const d=dist(p,o);if(!b||d<b[2])b=[n,o,d]}return b}
+function canSaveHere(){const b=nearSave();return b&&b[2]<70}
+function dirName(o){const p=G.p,a=Math.atan2(o.y-p.y,o.x-p.x);return['E','SE','S','SW','W','NW','N','NE'][Math.round(((a+Math.PI*2)%(Math.PI*2))/(Math.PI/4))%8]}
+function exitGame(){try{doSave()}catch(e){}if(PWA&&PWA.standalone){try{window.close()}catch(e){}}setTimeout(()=>{state='title'},120)}
+function drawPause(t){btn(0,0,W,H,null,()=>{});X.fillStyle='rgba(4,4,12,.82)';X.fillRect(0,0,W,H);const cx=W/2,bw=380,bh=60;let y=110;
+ const B=(lab,f,o)=>{btn(cx-bw/2,y,bw,bh,lab,f,Object.assign({sz:18},o||{}));y+=bh+12};
+ if(PM.view=='main'){txt('PAUSED',cx,80,40,'#ffe9a8');B('Resume',resume,{stroke:'#8f8'});B('Settings',()=>{openInv();INV.tab='settings'});
+  const ns=nearSave();B(canSaveHere()?'Save game':'Save (only at save points)',()=>{if(canSaveHere()){doSave();PM.msg='Game saved.';sfx('level')}else PM.msg=ns?'Nearest save point: '+ns[0]+' ~'+Math.round(ns[2]/T)+' tiles '+dirName(ns[1])+(ns[1]===G.wp&&!G.wp.on?' (step on it)':''):'No save point found yet'},{stroke:canSaveHere()?'#8ef':'#667'});
+  B('Controls / Help',()=>{PM.view='help'});B('Quit to Title',()=>{PM.view='quit'});B('Exit Game',()=>{PM.view='exit'});if(PM.msg)txt(PM.msg,cx,y+16,15,'#9ef')}
+ else if(PM.view=='help'){txt('CONTROLS',cx,70,30,'#ffe9a8');const L=touchOn()?['Left stick: move  |  ATK (hold): attack, drag to aim','ALT: block/spin/alt  |  ROLL: dodge  |  F: interact','1-5: skills (cooldown rings)  |  POT/BOMB/RIP/GUN/RLD','Top: BOX, SKILLS, AUTO play, MAP, MENU']:['WASD move · mouse aim · LMB attack · RMB weapon alt','Shift/MMB dodge · 1-5 skills · E ping · G riposte','X Ruinbreaker · R reload · Q potion · B bomb · F interact','I Item Box · K skills · P Auto Play · N map · M mute · Esc pause'];
+  L.forEach((l,i)=>txt(l,cx,130+i*32,16,'#ddd'));txt('Auto-attack is always on. Save at beds and waypoints.',cx,130+L.length*32+20,14,'#9cf');y=H-110;B('Back',()=>{PM.view='main'})}
+ else{const q=PM.view=='quit';txt(q?'Quit to Title?':'Exit Game?',cx,140,32,'#ffb070');const sv=(()=>{try{return JSON.parse(localStorage.getItem('ikySave'))}catch(e){return null}})();
+  txt('Progress since your last save will be lost.',cx,200,17,'#ddd');txt(sv?'Last save: Floor '+(sv.floor+1)+', Lv '+sv.p.lvl+' - autosave is made only at beds/waypoints'+(q?'':' (exiting autosaves now)'):'No save yet',cx,232,14,'#aaa');y=290;
+  B(q?'Yes, quit to title':'Yes, exit',()=>{if(q){state='title'}else exitGame()},{stroke:'#f88'});B('Cancel',()=>{PM.view='main'})}}
+const _pr17=press;press=function(c,k){if(c=='Escape'){if(state=='play'){openPause();return}if(state=='pause'){if(PM.view=='main')resume();else PM.view='main';return}}if(state=='pause')return;_pr17(c,k)};
+const _dr17=draw;draw=function(t){if(state=='pause'){state='play';_dr17(t);state='pause';BT=[];drawPause(t);return}_dr17(t);if(state=='play'){const x=W-74,y=4;btn(x,y,70,70,null,()=>openPause());X.fillStyle='rgba(20,24,40,.8)';X.fillRect(x,y,70,70);X.strokeStyle='#cde';X.lineWidth=2;X.strokeRect(x,y,70,70);X.fillStyle='#fff';for(let i=0;i<3;i++)X.fillRect(x+18,y+20+i*12,34,5)}};
+// MENU top touch button opens pause; move it so it doesn't collide with corner button
+const _bp17=btnPress;btnPress=function(b,down){if(b.k=='menu'){if(down)openPause();return}_bp17(b,down)};
+// Android back button -> pause
+if(typeof window!=='undefined'&&window.history&&window.history.pushState&&window.addEventListener){try{history.pushState({ikyp:1},'')}catch(e){}window.addEventListener('popstate',()=>{if(state=='play')openPause();else if(state=='pause')resume();else if(state=='inv')state='play';try{history.pushState({ikyp:1},'')}catch(e){}})}
+// pause when app goes to background
+if(typeof document!=='undefined'&&document.addEventListener)document.addEventListener('visibilitychange',()=>{if(document.hidden&&state=='play')openPause()});
+
 if(location.hash=="#skills"){newGame();state="appraisal";G.apT=2;startPicker();PK.sel=[0,2];PK.cur=SKIDS[2]}
 if(location.hash=="#demo"){quick();G.p.ping=4;G.pingR=0;G.p.blue=true;setTimeout(()=>{G.p.atkT=.18;attack()},1500)}
 {const m=/^#wpn=(\w+)$/.exec(location.hash);if(m){quick();const p=G.p;p.eq.weapon=m[1]=="gun"?null:{n:m[1],type:m[1],slot:"weapon",tier:2,el:m[1]=="staff"?"fire":null,fx:[],atk:5};G.ens=G.ens.filter(e=>e.boss);spawn("ghoul",p.x+70,p.y,1);G.ens[G.ens.length-1].hp=1e4;p.face=0;state="play";if(m[1]=="gun"){p.gun=true;p.wm="gun";fireGun();G.freeze={}}else{attack();const W_=WPN[m[1]];G.freeze={atk:W_.at*.45};if(m[1]=="staff"){for(const s of G.shots){s.x+=40}}}}
@@ -1256,5 +1376,7 @@ if(location.hash=="#lift"){quick();G.p.blue=true;G.p.x=G.bed.x+120;G.p.y=G.bed.y
 if(location.hash=="#equip"){quick();const p=G.p;for(const k of ['weapon','head','body','arms','legs','feet','ear','ring1']){const it=mkGear(k=='ring1'?'ring':k,6,k=='ring1'?'frost':null);p.eq[k]=it}p.eq.weapon.type='sword';p.eq.weapon.n='Rare Sword';p.box.items.push(mkGear('ring',8,'fire'),Object.assign(mkGear('ring',4),{}),mkGear('ring',7,'poison'));recalc();state='play';openInv();INV.tab='equip';INV.eslot='ring2';setTimeout(()=>{M.x=760;M.y=198;M.on=1},50)}
 if(location.hash=="#auto"){quick();G.p.set.autoplay=true}
 if(location.hash=="#mwfree"){quick();G.p.skills[0]="mwork";G.p.skills[1]="synth";G.p.mwFree=null;recalc();state="play";openInv();INV.tab="craft";INV.text="shadow shroud of stealth";INV.useFree=true}
+if(location.hash=="#pause"){quick();state="play";openPause()}
+if(location.hash=="#loot"){quick();const p=G.p;p.skills[0]="treasure";for(const r of [3,4,2,1,0,2,3])p.box.items.push(mkGear("armor",4,null,{rar:r}));p.orbs={trans:2,alch:1,chaos:1,exalt:0};p.eq.ring1=mkGear("acc",4,null,{rar:3});recalc();openInv();INV.tab="equip";INV.eslot="body";setTimeout(()=>{M.x=760;M.y=198;M.on=1},50)}
 window.__dbg=()=>({state,G});
 </script></body></html>
