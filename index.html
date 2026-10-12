@@ -1283,7 +1283,7 @@ function mkFor(e,boss){const s=slotFor(e);const sl=['weapon','ring','ear','cloak
 dropMats=function(e){const p=G.p;const b0=p.box.items.length;
  if(e.boss){addMat(CORES[G.floor]);addMat('Iron Ore',2);for(let i=0;i<2;i++)p.box.items.push(mkFor(e,true));if(Math.random()<.5)p.box.items.push(mkGear('armor',G.floor+3,null,{il:ilvlNow(e)}));dropGold(e,8);dropOrb(e,1);flash(e.n+' dropped '+CORES[G.floor]+' + rare loot!')}
  else{const L=EDROP[e.ty]||['Bones'];if(Math.random()<Math.min(.95,.5+p.luck/90))addMat(L[ri(0,L.length-1)],1+(Math.random()<p.luck/80?1:0));
-  const gc=(.035+p.luck/400)*(e.elite?3:1)*(e.mini?6:1);if(Math.random()<gc)p.box.items.push(mkFor(e,false));if(Math.random()<.45)dropGold(e,1);if(Math.random()<.025*(e.elite?3:1)*(1+p.luck/100))dropOrb(e,0);
+  const gc=(.035+p.luck/400)*(e.elite?3:1)*(e.mini?6:1);if(Math.random()<gc)p.box.items.push(mkFor(e,false));if(Math.random()<.45)dropGold(e,1);if(Math.random()<.025*(e.elite?3:1)*(1+p.luck/100)*(has('treasure')?2:1))dropOrb(e,0);
   if(has('treasure')&&Math.random()<.06){const c=CORES[ri(0,CORES.length-1)],ci=CORES.indexOf(c);addMat(ci>G.floor?'Lesser '+c:c)}}
  for(let i=b0;i<p.box.items.length;i++){const it=p.box.items[i];if(setv('hideNormal',false)&&it.tier==0){p.box.items.splice(i,1);i--;addMat('Iron Ore',1);continue}beam(e.x,e.y,it)}};
 function dropGold(e,mult){const v=Math.round((3+G.floor*3)*(mult||1)*rnd(.6,1.6)*(1+G.p.luck/150));G.items.push({x:e.x+rnd(-14,14),y:e.y+rnd(-10,10),k:'gold',v})}
