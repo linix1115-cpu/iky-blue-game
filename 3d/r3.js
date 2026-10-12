@@ -40,7 +40,7 @@ function buildMap(){
 function sumMap(){let s=0;for(let y=0;y<MH;y++){const r=G.m[y];for(let x=0;x<MW;x++)if(r[x])s=(s+(x*131+y*7919))%1000000007}return s}
 function updFow(){const sn=G.seen;if(!sn)return;for(let y=0;y<MH;y++){const r=sn[y];for(let x=0;x<MW;x++){const v=r?r[x]:0,i=(y*MW+x)*4;fowData[i]=v==2?255:v==1?(G.p.ping>0?110:80):0}}fowTex.needsUpdate=true}
 const _m4=new T3.Matrix4();
-function cutWalls(px,pz){for(let i=0;i<wallCells.length;i++){const [x,y]=wallCells[i];const dz=y+.5-pz,dx=Math.abs(x+.5-px);const c=(dz>0.2&&dz<4.5&&dx<2.2+dz*.25)?1:0;
+function cutWalls(px,pz){for(let i=0;i<wallCells.length;i++){const [x,y]=wallCells[i];const dz=y+.5-pz,dx=Math.abs(x+.5-px);const zk=Math.max(1,R3.zk||1),c=(dz>0.2&&dz<4.5*zk&&dx<(2.2+dz*.25)*zk)?1:0;
  if(c!==cutSt[i]){cutSt[i]=c;_m4.makeScale(1,c?.12:1,1).setPosition(x+.5,0,y+.5);wallMesh.setMatrixAt(i,_m4);wallMesh.instanceMatrix.needsUpdate=true}}}
 // ---------- billboard sprite pool
 const POOL=new Map();let gen=0;
@@ -83,7 +83,7 @@ R3.frame=function(t,cm,SH){if(!R3.ok)return;R3.used=true;R3.frames++;gen++;gi=0;
  if(G.m!==curM)buildMap();else if(R3.frames%20==0){const s=sumMap();if(s!==mapSum)buildMap()}
  if(R3.frames%6==0||R3.frames<3)updFow();
  const sh=SH>0?(Math.random()-.5)*SH/T*.6:0;const cx=cm.x/T+sh,cz=cm.y/T+sh;
- const view=Math.max(1,W/H);cam.position.set(cx,19,cz+12);cam.lookAt(cx,0,cz-.3);
+ const view=Math.max(1,W/H),zk=1/(typeof ZOOM!='undefined'?ZOOM:1);cam.position.set(cx,19*zk,cz+12*zk);if(cam.far!==120){cam.far=120;cam.updateProjectionMatrix()}S.fog.near=22*zk;S.fog.far=44*zk;R3.zk=zk;cam.lookAt(cx,0,cz-.3);
  cutWalls(p.x/T,p.y/T);
  // lights
  pl.position.set(p.x/T,3.4,p.y/T+.4);pl.intensity=20+Math.sin(t*7)*.5;
@@ -109,7 +109,7 @@ R3.frame=function(t,cm,SH){if(!R3.ok)return;R3.used=true;R3.frames++;gen++;gi=0;
  for(const z of G.zones||[]){const a=z.k=='met'?.35+.3*Math.sin(t*20):.45;disc(z.x,z.y,z.r,col(z.c),a,false)}
  for(const b of G.bombs||[]){glow(b.x,b.y,.2+(b.z||0)/T,.5,b.k=='fire'?'#ff5530':b.k=='sticky'?'#60ff60':'#ffffff',.9)}
  // enemies
- for(const e of G.ens){const v=Math.hypot(e.x-p.x,e.y-p.y)<230||(p.ping>0&&Math.hypot(e.x-p.x,e.y-p.y)<(G.pingR||0));if(!v)continue;
+ const VR=230*Math.max(1,R3.zk||1);let nE=0;for(const e of G.ens){const v=(Math.hypot(e.x-p.x,e.y-p.y)<VR&&(e.boss||nE++<70))||(p.ping>0&&Math.hypot(e.x-p.x,e.y-p.y)<(G.pingR||0));if(!v)continue;
   const k=e.boss?BIM[G.floor]:(e.mini&&e.ty=='brute'?'b_captain':EIM[e.ty]);const r=e.r,sz=e.boss?r*4.4:e.mini?r*3.6:r*3.1;
   const nf=EFACE[k]!=null?EFACE[k]:-1,flip=!!nf&&((p.x<e.x)!=(nf<0));
   let em=null,emI=1;if(e.flash>0)em=WHITE;else if(e.elite&&e.elite.length){em=col(AFX[e.elite[0]]);emI=.25}else if(e.boss||e.mini){em=col(e.c);emI=.18}
