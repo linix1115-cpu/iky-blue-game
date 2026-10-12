@@ -129,6 +129,11 @@ R3.frame=function(t,cm,SH){if(!R3.ok)return;R3.used=true;R3.frames++;gen++;gi=0;
   if(p.roll>0)rot=(.28-p.roll)*25;
   const blink=p.inv>0&&p.roll<=0?.55+.45*Math.sin(t*40):1;
   spr(p,key,hpx,p.x,p.y+12,{flip,rot,alpha:blink});
+  const hw=p.wm=='gun'&&p.gun?'gun':(typeof wType=='function'?wType():'unarmed');R3.__w=R3.__w||{};
+  if(!row&&p.roll<=0&&hw!='unarmed'&&typeof WHELD!='undefined'&&WHELD[hw]&&WHELD[hw][0]){const d=dir4(p.face),c=Math.cos(p.face),fl=d=='l';const sw=p.mv?Math.sin(ikD/.45*Math.PI)*2.5:0;
+   const hx=d=='l'||d=='r'?(fl?-14:14)+sw*(fl?-1:1):d=='d'?16:-14,hy=d=='u'?-36:-30;const L=(WHELD[hw][1]||36)*.75;
+   const ws=spr(R3.__w,WHELD[hw][0],L,p.x+hx,p.y+12,{max:1,flip:fl,rot:(hw=='gun'?-1.4:-.35)*(fl?-1:1),lift:(-hy-L*.5)/T});
+   if(ws){ws.g.position.z+=d=='u'?-.08:.06;ws.bl.visible=false}}
   if(p.spin>0)disc(p.x,p.y,60,'#ffffff',.6,true);
   if(p.atgt){const g=p.atgt;disc(g.x,g.y,g.r+10,'#ff4444',.8,true)}
   if(p.ping>0)disc(p.x,p.y,G.pingR||0,'#78c8ff',Math.min(1,p.ping/4),true);
