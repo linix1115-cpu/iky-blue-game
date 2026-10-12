@@ -1,7 +1,7 @@
 // Death Dungeon 3D renderer: draws the 2D game's world state (G) with three.js. Game logic/UI stay in the 2D script.
 import * as T3 from './three.module.js';
 const R3={ok:false,frames:0,used:false,stats:{}};window.R3=R3;
-let sun,R,S,cam,hemi,amb,pl,cv,floorMesh,wallMesh,fowTex,fowData,curM=null,mapSum=-1,wallCells=[],cutSt=null,torchL=[],ptsGeo,pts,blobT,glowT,q0=null;
+let curW=null,sun,R,S,cam,hemi,amb,pl,cv,floorMesh,wallMesh,fowTex,fowData,curM=null,mapSum=-1,wallCells=[],cutSt=null,torchL=[],ptsGeo,pts,blobT,glowT,q0=null;
 const UNIT=()=>T; // px per tile
 const TEX=new Map();
 function tex(k){const im=IM[k];if(!im||!im.complete||!im.naturalWidth)return null;let t=TEX.get(k);if(!t){t=new T3.Texture(im);t.colorSpace=T3.SRGBColorSpace;t.anisotropy=4;t.needsUpdate=true;TEX.set(k,t)}return t}
@@ -30,11 +30,11 @@ function fowify(m){m.onBeforeCompile=sh=>{sh.uniforms.fowMap=FOW;sh.uniforms.map
 function buildMap(){
  if(floorMesh){S.remove(floorMesh);floorMesh.geometry.dispose()}if(wallMesh){S.remove(wallMesh);wallMesh.geometry.dispose()}
  MAPSZ.value.set(MW,MH);fowData=new Uint8Array(MW*MH*4);fowTex=new T3.DataTexture(fowData,MW,MH,T3.RGBAFormat);fowTex.magFilter=T3.LinearFilter;fowTex.minFilter=T3.LinearFilter;fowTex.flipY=false;fowTex.needsUpdate=true;FOW.value=fowTex;
- const fk='f_'+FIDX[Math.min(G.floor,FIDX.length-1)];const ft=tex(fk)||tex('t_floor');let fm;
- if(ft){const t=ft.clone();t.wrapS=t.wrapT=T3.RepeatWrapping;t.repeat.set(MW/5,MH/5);t.needsUpdate=true;fm=new T3.MeshStandardMaterial({map:t,roughness:.9,metalness:0})}else fm=new T3.MeshStandardMaterial({color:0x333333,roughness:.9});
+ const wid=window.worldId?worldId():'crypt';curW=wid;const fk='f_'+FIDX[Math.min(G.floor,FIDX.length-1)];const ft=tex('fw_'+wid)||tex(fk)||tex('t_floor');let fm;
+ if(ft){const t=ft.clone();t.wrapS=t.wrapT=T3.RepeatWrapping;t.repeat.set(MW/(wid=='crypt'?5:3),MH/(wid=='crypt'?5:3));t.needsUpdate=true;fm=new T3.MeshStandardMaterial({map:t,roughness:.9,metalness:0})}else fm=new T3.MeshStandardMaterial({color:0x333333,roughness:.9});
  const fg=new T3.PlaneGeometry(MW,MH);fg.rotateX(-Math.PI/2);fg.translate(MW/2,0,MH/2);floorMesh=new T3.Mesh(fg,fowify(fm));floorMesh.receiveShadow=true;S.add(floorMesh);
  wallCells=[];for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){if(!G.m[y][x])continue;let n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const r=G.m[y+dy];if(r&&r[x+dx]===0)n=1}if(n)wallCells.push([x,y])}
- const wt=tex('t_wall');if(wt){wt.wrapS=wt.wrapT=T3.RepeatWrapping;wt.repeat.set(2,2)}const wm=fowify(new T3.MeshStandardMaterial(wt?{map:wt,roughness:.95,bumpMap:wt,bumpScale:2}:{color:0x2a2622,roughness:.95}));
+ const wt=tex('ww_'+wid)||tex('t_wall');if(wt){wt.wrapS=wt.wrapT=T3.RepeatWrapping;wt.repeat.set(1,1)}const wm=fowify(new T3.MeshStandardMaterial(wt?{map:wt,roughness:.95,bumpMap:wt,bumpScale:2}:{color:0x2a2622,roughness:.95}));
  const WH=1.5;const wg=new T3.BoxGeometry(1,WH,1);wg.translate(0,WH/2,0);wallMesh=new T3.InstancedMesh(wg,wm,Math.max(1,wallCells.length));wallMesh.castShadow=wallMesh.receiveShadow=true;
  const m4=new T3.Matrix4();wallCells.forEach(([x,y],i)=>{m4.makeTranslation(x+.5,0,y+.5);wallMesh.setMatrixAt(i,m4)});wallMesh.count=wallCells.length;S.add(wallMesh);cutSt=new Uint8Array(wallCells.length);
  curM=G.m;mapSum=sumMap();R3.stats.walls=wallCells.length}
@@ -81,7 +81,7 @@ R3.pre=()=>{R3.used=false};
 R3.post=()=>{if(!R3.ok)return;cv.style.display=R3.used?'block':'none'};
 R3.frame=function(t,cm,SH){if(!R3.ok)return;R3.used=true;R3.frames++;gen++;gi=0;di=0;bi=0;const p=G.p;
  if(curQ!==GFX.q)applyQ();sizeTo();
- if(G.m!==curM)buildMap();else if(R3.frames%20==0){const s=sumMap();if(s!==mapSum)buildMap()}
+ if(G.m!==curM||(window.worldId&&worldId()!==curW))buildMap();else if(R3.frames%20==0){const s=sumMap();if(s!==mapSum)buildMap()}
  if(R3.frames%6==0||R3.frames<3)updFow();
  const sh=SH>0?(Math.random()-.5)*SH/T*.6:0;const cx=cm.x/T+sh,cz=cm.y/T+sh;
  const view=Math.max(1,W/H),zk=1/(typeof ZOOM!='undefined'?ZOOM:1);cam.position.set(cx,19*zk,cz+12*zk);if(cam.far!==120){cam.far=120;cam.updateProjectionMatrix()}S.fog.near=22*zk;S.fog.far=44*zk;R3.zk=zk;cam.lookAt(cx,0,cz-.3);
