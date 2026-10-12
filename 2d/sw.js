@@ -1,5 +1,5 @@
 // Death Dungeon classic 2D service worker, scope /2d/. Saves live in localStorage and are never touched.
-const CACHE='dd-2d-r20261012154911';
+const CACHE='dd-2d-r20261012155543';
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./','./index.html','./manifest.webmanifest'])))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith('dd-2d-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('message',e=>{if(e.data==='skipWaiting')self.skipWaiting();if(e.data==='version'&&e.source)e.source.postMessage({version:CACHE})});

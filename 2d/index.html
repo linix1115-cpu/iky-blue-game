@@ -1868,7 +1868,7 @@ const _gpD=galPlay;galPlay=function(g){if(g.cs){GAL.replay=1;startCS(g.n,g.img,g
 function zoomUI(x,y,w){txt('Camera zoom: '+Math.round(ZOOM*100)+'%  (50% = see more)',x,y-8,13,'#cde','left');btn(x,y,40,32,'-',()=>setZoom(ZOOM-.1),{sz:18});btn(x+w-40,y,40,32,'+',()=>setZoom(ZOOM+.1),{sz:18});
  const bx=x+48,bw=w-96;X.fillStyle='rgba(255,255,255,.12)';X.fillRect(bx,y+12,bw,8);X.fillStyle='#d8c7a0';X.fillRect(bx,y+12,bw*(ZOOM-.5),8);X.beginPath();X.arc(bx+bw*(ZOOM-.5),y+16,10,0,7);X.fill();
  for(let i=0;i<=20;i++){const z=.5+i*.05;btn(bx+bw*(z-.5)-bw/40,y,bw/20,32,null,()=>setZoom(z))}}
-const _diZ=drawInv;drawInv=function(t){_diZ(t);if(INV.tab=='settings')zoomUI(W-380,H-170,300)};
+const _diZ=drawInv;drawInv=function(t){_diZ(t);if(INV.tab=='settings')zoomUI(390,H-60,210)};
 const _dpZ=drawPause;drawPause=function(t){_dpZ(t);if(PM.view=='main')zoomUI(30,H-60,300)};
 const PZ={};
 const _tdZ=tDown;tDown=function(id,x,y){_tdZ(id,x,y);if(state=='play'&&!TS.btn[id]&&!(TS.joy&&TS.joy.id===id)){PZ[id]={x,y};PZ.d0=null}};
@@ -2261,7 +2261,7 @@ function setBright(v){LT.b=Math.max(.5,Math.min(2,Math.round(v*20)/20));try{loca
 function brightUI(x,y,w){txt('Brightness: '+Math.round(LT.b*100)+'%   Light: +'+LT.lightStat()+'%',x,y-8,13,'#fe9','left');btn(x,y,40,32,'-',()=>setBright(LT.b-.1),{sz:18});btn(x+w-40,y,40,32,'+',()=>setBright(LT.b+.1),{sz:18});
  const bx=x+48,bw=w-96,f=(LT.b-.5)/1.5;X.fillStyle='rgba(255,255,255,.12)';X.fillRect(bx,y+12,bw,8);X.fillStyle='#ffe08a';X.fillRect(bx,y+12,bw*f,8);X.beginPath();X.arc(bx+bw*f,y+16,10,0,7);X.fill();
  for(let i=0;i<=15;i++){const z=.5+i*.1;btn(bx+bw*(z-.5)/1.5-bw/32,y,bw/16,32,null,()=>setBright(z))}}
-const _diLT=drawInv;drawInv=function(t){_diLT(t);if(INV.tab=='settings')brightUI(W-380,H-240,300)};
+const _diLT=drawInv;drawInv=function(t){_diLT(t);if(INV.tab=='settings')brightUI(152,H-60,220)};
 const _dpLT=drawPause;drawPause=function(t){_dpLT(t);if(PM.view=='main')brightUI(30,H-130,300)};
 // 2D renderer: bigger light, per-world darkness, explored tiles faintly lit
 (function(){let s=light25.toString();s=s.replace("'rgba(3,2,10,.82)'","'rgba(3,2,10,'+LT.dark()+')'").replace("const lr=(has('ping')?250:230)+Math.sin(t*3)*4;","const lr=((has('ping')?250:230)+Math.sin(t*3)*4)*LT.r();");
@@ -2305,4 +2305,35 @@ function worldName(){return WNAMES[worldId()]||''}
 // world banner on floor entry
 let _wLast=null,_wT=0;const _drW=draw;draw=function(t){_drW(t);if(state=='play'&&G&&G.p){const w=worldId()+G.floor;if(w!==_wLast){_wLast=w;_wT=t}const a=t-_wT;if(a<3){X.globalAlpha=Math.max(0,Math.min(1,3-a));txt('— '+worldName()+' —',W/2,H*.28,28,'#f4e4c0');X.globalAlpha=1}}};
 /*END:m_worlds.js*/
+/*MOD:n_voice.js*/
+// ===== v21 Voice acting: pre-rendered offline TTS (Piper) lines in /v/, cached for offline; Voice volume + Subtitles
+const VKEYS=new Set(["0117b053", "064a34b2", "0bc9291c", "0d8be6d2", "0e193352", "1939a12b", "1d9bcb07", "23bc32a5", "23e1709f", "28d1b23b", "29b6d7aa", "2a69cde8", "35f629c2", "3a4e5853", "4246a00e", "50dfe3b0", "56e68ff5", "59d516d6", "5acc5573", "5ae34690", "5fe132db", "60237d7f", "615b332b", "663b5504", "699356bd", "6b5043b0", "6f8c36d8", "71e03433", "7629f42f", "88281991", "89fd47bb", "95052706", "95484491", "96c66c62", "978c5896", "9b94bfa8", "a262d90c", "a3ae3950", "a9f3673d", "aa822bc5", "acff13f3", "b6fcedd5", "c0138431", "c3e93528", "c78e3573", "ccc1ee2b", "cfeeb9ea", "d21fc19d", "d40e9b10", "d59a2179", "da42ea7c", "dbcc226c", "dc9ec118", "e59ef8b2", "e7183d93", "eceeafa1", "fbb9be9c", "fdb7f87f"]);
+const VOX={vol:+(localStorage.getItem('dd_voice')??.85),subs:localStorage.getItem('dd_subs')!=='0',a:null,cap:'',capT:0,lastHurt:0,lastDanger:-99,hp0:0};
+const VBASE=/\/(2d|3d)\//.test(location.pathname)?'../v/':'v/';
+const DANGER=["Iky, careful! Fall back!","Stay with me. Don't you dare fall here.","I've got your back. Focus!","It's strong. Together, on three!"];
+const GRUNT=['Hah!','Hngh!','Ugh!','Tch.','Hmph.'];
+function vFnv(s){let h=0x811c9dc5;for(const c of new TextEncoder().encode(s)){h^=c;h=Math.imul(h,0x01000193)>>>0}return h.toString(16).padStart(8,'0')}
+function vSpeak(t){t=t.replace(/\*[^*]*\*/g,'');const m=[...t.matchAll(/"([^"]+)"/g)].map(x=>x[1]);if(m.length)t=m.join(' ');else if(t.startsWith('Blue:'))t=t.slice(5);t=t.replace(/~/g,'!').replace(/-/g,', ').trim();return /[A-Za-z]/.test(t)?t:''}
+function vVoice(spk,ctx){if(spk=='serath')return'goddess';if(spk=='king')return'king';if(/^blue/.test(spk))return(spk=='blue_surprised'||spk=='blue_curious'||ctx=='danger')?'blue_serious':'blue';if(/^iky/.test(spk)&&(spk=='iky_serious'||ctx=='grunt'))return'iky';return null}
+function vPlay(spk,text,ctx){try{if(VOX.vol<=0||typeof Audio=='undefined')return;const vo=vVoice(spk,ctx),sp=vo&&vSpeak(text||'');if(!sp)return;const k=vFnv(vo+'|'+sp);if(!VKEYS.has(k))return;
+ const url=VBASE+k+'.mp3',go=src=>{if(VOX.a&&ctx!='grunt'){try{VOX.a.pause()}catch(e){}}const a=new Audio(src);a.volume=Math.min(1,VOX.vol);a.play().catch(()=>{});if(ctx!='grunt')VOX.a=a;VOX.cap=(vo=='goddess'?'Serathiel: ':vo=='king'?'King: ':/blue/.test(vo)?'Blue: ':'Iky: ')+sp;VOX.capT=performance.now()};
+ if(window.caches)caches.match(url).then(r=>r?r.blob().then(b=>go(URL.createObjectURL(b))):go(url)).catch(()=>go(url));else go(url)}catch(e){}}
+let _vCached=0;function vCacheAll(){if(_vCached||!window.caches)return;_vCached=1;caches.open('dd-voice').then(c=>c.keys().then(ks=>{const have=new Set(ks.map(r=>r.url.split('/').pop().split('.')[0]));const need=[...VKEYS].filter(k=>!have.has(k)).map(k=>VBASE+k+'.mp3');return Promise.all(need.map(u=>c.add(u).catch(()=>{})))})).catch(()=>{})}
+setTimeout(vCacheAll,4000);
+// hooks: cutscenes, Blue quips, Iky grunts, Blue danger calls
+const _scV=startCS;startCS=function(title,bg,lines,done,boss){_scV(title,bg,lines,done,boss);const l=CS&&CS.lines[0];if(l)vPlay(l[0],l[1],boss?'boss':'story')};
+const _cnV=csNext;csNext=function(){_cnV();if(CS&&state=='cutscene'){const l=CS.lines[CS.i];if(l)vPlay(l[0],l[1],'story')}else if(VOX.a){try{VOX.a.pause()}catch(e){}}};
+const _bsV=bSay;bSay=function(s,t){_bsV(s,t);if(typeof s=='string')vPlay('blue',s,DANGER.includes(s)?'danger':'quip')};
+if(typeof BQ!='undefined')BQ.danger=DANGER;
+const _upV=update;update=function(dt){_upV(dt);if(state!='play'||!G||!G.p)return;const p=G.p,now=performance.now()/1000;
+ if(p.hp<VOX.hp0-p.mhp*.06&&now-VOX.lastHurt>5&&Math.random()<.5){VOX.lastHurt=now;vPlay('iky',GRUNT[Math.random()*GRUNT.length|0],'grunt')}VOX.hp0=p.hp;
+ if(p.blue&&G.blueE&&p.hp<p.mhp*.3&&now-VOX.lastDanger>30){VOX.lastDanger=now;bSay(DANGER[Math.random()*DANGER.length|0],3)}};
+function setVoice(v){VOX.vol=Math.max(0,Math.min(1,Math.round(v*20)/20));try{localStorage.setItem('dd_voice',VOX.vol)}catch(e){}}
+function voiceUI(x,y,w){txt('Voice: '+Math.round(VOX.vol*100)+'%',x,y-8,13,'#fbd','left');btn(x,y,40,32,'-',()=>setVoice(VOX.vol-.1),{sz:18});btn(x+w-40-96,y,40,32,'+',()=>setVoice(VOX.vol+.1),{sz:18});
+ const bx=x+48,bw=w-96-96;X.fillStyle='rgba(255,255,255,.12)';X.fillRect(bx,y+12,bw,8);X.fillStyle='#f9c';X.fillRect(bx,y+12,bw*VOX.vol,8);for(let i=0;i<=10;i++)btn(bx+bw*i/10-bw/22,y,bw/11,32,null,()=>setVoice(i/10));
+ btn(x+w-90,y,90,32,'Subs: '+(VOX.subs?'ON':'OFF'),()=>{VOX.subs=!VOX.subs;try{localStorage.setItem('dd_subs',VOX.subs?'1':'0')}catch(e){}},{sz:12})}
+const _diV=drawInv;drawInv=function(t){_diV(t);if(INV.tab=='settings')voiceUI(152,H-118,448)};
+const _dpV=drawPause;drawPause=function(t){_dpV(t);if(PM.view=='main')voiceUI(30,H-200,300)};
+const _drV=draw;draw=function(t){_drV(t);if(VOX.subs&&state=='play'&&VOX.cap&&performance.now()-VOX.capT<3500){X.font='15px monospace';const w=X.measureText(VOX.cap).width+24;X.fillStyle='rgba(0,0,0,.6)';X.fillRect(W/2-w/2,H-140,w,26);txt(VOX.cap,W/2,H-122,15,'#fff')}};
+/*END:n_voice.js*/
 </script></body></html>
