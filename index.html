@@ -2120,4 +2120,65 @@ const _drE=draw;draw=function(t){if(state=='title'&&UIV){BT=[];if(UIV=='forge')d
 function drawToast(){const q=TOAST[0];if(!q)return;const a=Math.min(1,q.t*2,(4-q.t)*3);X.save();X.globalAlpha=Math.max(0,a);X.fillStyle='rgba(40,30,8,.94)';X.fillRect(W/2-170,12,340,54);X.strokeStyle='#ffd36a';X.lineWidth=2;X.strokeRect(W/2-170,12,340,54);txt('\u2605 Achievement: '+q.n,W/2,34,16,'#ffe9a8');txt(q.d,W/2,54,12,'#ddd');X.restore()}
 const _prE=press;press=function(c,k){if(state=='title'&&UIV){if(c=='Escape'||c=='Backspace')UIV=null;return}if(state=='pause'&&(PM.view=='talents'||PM.view=='ach')){if(c=='Escape')PM.view='main';return}if(state=='play'&&c=='KeyT'){openPause();PM.view='talents';return}return _prE(c,k)};
 /*END:f_stageE.js*/
+/*MOD:g_blue_ai.js*/
+// ===== v21 Blue independent behavior: FOLLOW / EXPLORE / FIGHT / LOOT / IDLE quirks, regroup rules, Free Roam toggle
+const BQ={tease:['Blue: "Keep up, hero~ or I\'ll find all the treasure myself."','Blue: "You look cute when you\'re concentrating."','Blue: "Stop staring and start walking~"','Blue: "If you get lost, just follow the pretty girl."','Blue: "Hmm? Were you worried about me? How sweet."'],
+ loot:['Blue: "Here, I grabbed this for you~"','Blue: "Shiny! It\'s yours, handsome."','Blue: "Don\'t say I never give you anything."'],
+ find:['Blue: "Iky! Over here, I found something~"','Blue: "Psst, hero. Come look at this."'],
+ crack:['Blue: "This wall sounds hollow... Smash it?"'],bed:['Blue: "There\'s a cozy little room behind this wall~"'],
+ fight:['Blue: "I\'ve got this one!"','Blue: "Flanking!"','Blue: "Eyes on me, ugly!"'],regroup:['Blue: "Wait for me!"','Blue: "Coming, coming~"','Blue: "Hold on, I\'m right here!"'],
+ idle:['*hums a soft tune*','*stretches with a little yawn*','*twirls a lock of her hair*','*fixes her flower clip*','*taps her foot, smiling at you*'],sit:['*perches on the crates, swinging her legs*'],statue:['*admires the old carving* "Pretty..."']};
+const pick=a=>a[Math.random()*a.length|0];
+function bSay(s,t){const b=G.blueE;b.say=s;b.sayT=t||3.2}
+function bRoam(){const p=G.p;return !(p.set&&p.set.blueRoam===false)}
+function bFloor(x,y){const tx=x/T|0,ty=y/T|0;return G.m[ty]&&G.m[ty][tx]===0}
+function bGo(b,o,sp,dt){const d=dist(b,o);if(d<6){b.mv=false;return true}const a=Math.atan2(o.y-b.y,o.x-b.x);b.face=a;b.fl=o.x<b.x;b.mv=true;const s=Math.min(sp,d*4)*dt,x0=b.x,y0=b.y;move(b,Math.cos(a)*s,Math.sin(a)*s,!bFloor(b.x,b.y));
+ if(!bFloor(b.x,b.y)&&bFloor(x0,y0)){b.x=x0;b.y=y0}b.stk=Math.hypot(b.x-x0,b.y-y0)<s*.3?(b.stk||0)+dt:0;return false}
+function bMark(x,y,k){G.bmk=G.bmk||[];if(G.bmk.some(m=>Math.hypot(m.x-x,m.y-y)<40))return false;G.bmk.push({x,y,k,t:10});try{sfx('chime')}catch(e){}return true}
+function blueAI(dt,b0){const p=G.p,b=G.blueE;if(!p.blue||!bRoam()){b.mode='FOLLOW';return}
+ const d=dist(p,b),aw=G.ens.filter(e=>e.hp>0&&e.aw&&dist(e,p)<320),near=G.ens.filter(e=>e.hp>0&&dist(e,b)<200);b.sayT=(b.sayT||0)-dt;b.mt=(b.mt||0)-dt;
+ const exiting=(G.bossDead&&G.door&&dist(p,G.door)<140)||(G.ev||[]).some(q=>q.k=='portal'&&!q.used&&dist(q,p)<110);
+ const danger=p.hp<p.mhp*.45||aw.length>=6;
+ if(d>14*T||exiting||danger){if(b.mode!='REGROUP'&&d>6*T&&b.sayT<=0)bSay(pick(BQ.regroup),2);b.mode='REGROUP'}
+ else if(b.mode=='REGROUP'&&d<3*T)b.mode='FOLLOW';
+ if(b.mode=='REGROUP'){b.x=b0.x;b.y=b0.y;if(d>40)bGo(b,p,260,dt);else b.mv=false;if(d>22*T){b.x=p.x+20;b.y=p.y}return}
+ if(aw.length||near.some(e=>e.aw)){// FIGHT: own target, flank
+  if(b.mode!='FIGHT'){b.mode='FIGHT';b.tg=null;if(Math.random()<.3&&b.sayT<=0)bSay(pick(BQ.fight),1.6)}
+  if(!b.tg||b.tg.hp<=0||dist(b.tg,p)>360){const c=aw.concat(near).filter(e=>e.hp>0);b.tg=c.sort((u,v)=>(u.hp/u.mhp+dist(u,b)/400)-(v.hp/v.mhp+dist(v,b)/400))[0]||null;b.side=Math.random()<.5?1:-1}
+  const t=b.tg;if(t){const a=Math.atan2(t.y-p.y,t.x-p.x)+b.side*1.4,fp={x:t.x-Math.cos(a)*-0+Math.cos(a)*120,y:t.y+Math.sin(a)*120};const goal=bFloor(fp.x,fp.y)?fp:{x:t.x+(b.x-t.x)*.0+Math.cos(Math.atan2(b.y-t.y,b.x-t.x))*130,y:t.y+Math.sin(Math.atan2(b.y-t.y,b.x-t.x))*130};
+   if(dist(b,goal)>20)bGo(b,goal,210,dt);else{b.mv=false;b.face=Math.atan2(t.y-b.y,t.x-b.x);b.fl=t.x<b.x}
+   b.fc=(b.fc||0)-dt;if(b.fc<=0&&dist(b,t)<300){b.fc=1.4;const a2=Math.atan2(t.y-b.y,t.x-b.x),sp=G.p.lvl;G.shots.push({x:b.x,y:b.y,vx:Math.cos(a2)*400,vy:Math.sin(a2)*400,f:1,dm:3+sp*1.2,t:1,c:'#b9f',st:Math.random()<.3?['sn',1]:undefined})}}
+  if(dist(b,p)>9*T)b.mode='REGROUP';return}
+ // calm
+ b.calm=(b.mode=='FIGHT'?0:(b.calm||0))+dt;
+ const it=(G.items||[]).filter(i=>!i.bh&&dist(i,b)<7*T&&dist(i,p)>40&&dist(i,p)<12*T).sort((u,v)=>dist(u,b)-dist(v,b))[0];
+ if(it&&b.mode!='IDLE'){b.mode='LOOT';if(bGo(b,it,190,dt)||dist(b,it)<14){it.x=p.x;it.y=p.y;it.bh=1;bSay(pick(BQ.loot),2.4);b.mode='FOLLOW';b.calm=0}else if(b.stk>1.5){it.bh=1;b.mode='FOLLOW'}return}
+ // discoveries while away from Iky
+ const S=G.sec;if(S&&!S.open&&!S.rev&&Math.hypot(S.x*T-b.x,S.y*T-b.y)<4*T){S.rev=1;if(bMark((S.x+.5)*T,(S.y+.5)*T,'crack'))bSay(pick(BQ.crack))}
+ const B=G.bedR;if(B&&!B.open&&!B.rev&&Math.hypot(B.x*T-b.x,B.y*T-b.y)<4*T){B.rev=1;if(bMark((B.x+.5)*T,(B.y+.5)*T,'bed'))bSay(pick(BQ.bed))}
+ for(const i of G.items||[])if(dist(i,b)<4*T&&dist(i,p)>8*T&&bMark(i.x,i.y,'loot')){bSay(pick(BQ.find),2.4);break}
+ {const tx=b.x/T|0,ty=b.y/T|0;for(let y=ty-2;y<=ty+2;y++)for(let x=tx-2;x<=tx+2;x++)if(G.seen[y]&&G.seen[y][x]===0)G.seen[y][x]=1}
+ if(b.mode=='EXPLORE'){if(!b.goal||b.stk>1.2||dist(b.goal,p)>10*T||bGo(b,b.goal,140,dt)){b.goal=null;b.mode=Math.random()<.4?'IDLE':'FOLLOW';b.calm=Math.random()*2;b.it=0}return}
+ if(b.mode=='IDLE'){b.it=(b.it||0)+dt;b.mv=false;if(!b.q){const props=(G.decor||[]).concat(G.props||[]).filter(o=>o&&o.k&&dist(o,b)<4*T);const cr=props.find(o=>/barrel|crate|rubble/.test(o.k)),st=props.find(o=>/pillar|altar|statue|crystal/.test(o.k));
+   const r=Math.random();b.q=cr&&r<.3?{s:pick(BQ.sit),at:cr}:st&&r<.5?{s:pick(BQ.statue),at:st}:r<.75?{s:pick(BQ.idle)}:{s:pick(BQ.tease)};bSay(b.q.s,3.5)}
+  if(b.q.at&&dist(b,b.q.at)>24)bGo(b,{x:b.q.at.x+14,y:b.q.at.y+10},120,dt);if(b.it>4.5||d>9*T){b.q=null;b.mode='FOLLOW';b.calm=0}return}
+ if(b.calm>3.5&&Math.random()<dt*.5){// choose an explore goal within 10 tiles of Iky, prefer unseen
+  let best=null,bs=-1;for(let k=0;k<40;k++){const x=p.x+rnd(-10,10)*T,y=p.y+rnd(-10,10)*T;if(!bFloor(x,y)||dist({x,y},p)>10*T||dist({x,y},p)<3*T)continue;const sc=(G.seen[y/T|0][x/T|0]?0:2)+Math.random();if(sc>bs){bs=sc;best={x,y}}}
+  if(best){b.goal=best;b.mode='EXPLORE';b.stk=0;return}}
+ if(b.calm>6&&Math.random()<dt*.15){b.mode='IDLE';b.it=0;b.q=null;return}
+ b.mode='FOLLOW';b.x=b0.x;b.y=b0.y;if(d>40)bGo(b,p,200,dt);else b.mv=false}
+const _upBA=update;update=function(dt){const b=G&&G.blueE,pre=b?{x:b.x,y:b.y}:null;_upBA(dt);if(state!='play'||!G||!G.p||!b)return;const post={x:b.x,y:b.y};
+ if(G.p.blue&&bRoam()){b.x=pre.x;b.y=pre.y;try{blueAI(dt,post)}catch(e){b.x=post.x;b.y=post.y}}else b.mode='FOLLOW';
+ if(G.bmk){for(const m of G.bmk)m.t-=dt;G.bmk=G.bmk.filter(m=>m.t>0)}};
+const _gfBA=genFloor;genFloor=function(){_gfBA();G.bmk=[];if(G.blueE)G.blueE.mode='FOLLOW'};
+function bScr(o){const cm=G.cam||G.p;return{x:(o.x-cm.x)*ZM+W/2,y:(o.y-cm.y)*ZM+H/2}}
+const _drBA=draw;draw=function(t){_drBA(t);if(state!='play'||!G||!G.p)return;const b=G.blueE;
+ for(const m of G.bmk||[]){const s=bScr(m);const sx=Math.max(16,Math.min(W-16,s.x)),sy=Math.max(90,Math.min(H-16,s.y-18));X.save();X.globalAlpha=Math.min(1,m.t);X.fillStyle=m.k=='bed'?'#ff8ab0':m.k=='crack'?'#ffd36a':'#9cf';X.beginPath();X.moveTo(sx,sy-9);X.lineTo(sx+7,sy);X.lineTo(sx,sy+9);X.lineTo(sx-7,sy);X.fill();txt(m.k=='bed'?'\u2665':'!',sx,sy+4,11,'#222');X.restore()}
+ if(G.p.blue&&b.say&&b.sayT>0){const s=bScr(b);X.save();X.font='12px monospace';const w=Math.min(420,X.measureText(b.say).width+18),x=Math.max(6,Math.min(W-w-6,s.x-w/2)),y=Math.max(70,s.y-78*ZM);X.globalAlpha=Math.min(1,b.sayT*2);X.fillStyle='rgba(255,245,250,.93)';X.fillRect(x,y,w,24);X.strokeStyle='#e9a';X.strokeRect(x,y,w,24);X.fillStyle='#634';X.textAlign='center';X.fillText(b.say,x+w/2,y+16);X.restore()}
+ if(state=='play'&&false)0};
+// toggle: pause menu side column + settings tab button + key B
+const _drBA2=draw;draw=function(t){_drBA2(t);const lab=()=>'Blue: '+(bRoam()?'Free Roam':'Stay Close'),tg=()=>{G.p.set.blueRoam=!bRoam();flash(lab())};
+ if(G&&G.p&&state=='pause'&&PM.view=='main')btn(W-200,290,180,44,lab(),tg,{sz:13,stroke:'#e9a'});
+ if(G&&G.p&&state=='inv'&&INV.tab=='settings')btn(W-250,H-60,230,40,lab(),tg,{sz:13,stroke:'#e9a'})};
+/*END:g_blue_ai.js*/
 </script></body></html>
