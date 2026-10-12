@@ -1,6 +1,6 @@
 {
-  "name": "Iky & Blue: Death Dungeon",
-  "short_name": "Iky & Blue",
+  "name": "Death Dungeon",
+  "short_name": "Death Dungeon",
   "description": "Isekai hack-and-slash dungeon crawler starring Iky and Blue.",
   "start_url": "./",
   "scope": "./",
