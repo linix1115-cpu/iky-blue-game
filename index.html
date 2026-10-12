@@ -44,7 +44,7 @@ const cpos=e=>{const r=C.getBoundingClientRect?C.getBoundingClientRect():{left:0
 if(C.addEventListener){C.addEventListener('mousemove',cpos);C.addEventListener('contextmenu',e=>e.preventDefault());C.addEventListener('mouseup',e=>{if(e.button==2&&G&&G.p)G.p.block=0});C.addEventListener('mousedown',e=>{cpos(e);e.preventDefault();click(e.button)})}
 function click(b){auInit();for(let i=BT.length-1;i>=0;i--){const q=BT[i];if(M.x>=q.x&&M.x<=q.x+q.w&&M.y>=q.y&&M.y<=q.y+q.h){if(q.w<W)sfx('ui');q.f(b);return}}
  if(state=='play'&&G){const p=G.p;const a=Math.atan2(M.y+p.y-H/2-p.y,M.x+p.x-W/2-p.x);p.face=a;if(b==0&&(p.atkCd<=0||p.wm=='gun'))attack();const rs=actives().find(i=>isRanged(i)&&!(p.cds[i]>0));p.manT=.3;if(b==2&&p.wm!='gun'&&altAttack()){}else if(b==1&&riposte()){}else if(b==2&&p.wm=='gun'&&rs){useSkill(rs)}else if((b==1||(b==2&&p.wm=='gun'))&&p.rollCd<=0){p.roll=.28;p.rollCd=.8;p.inv=.35;p.rollDir=a}}}
-if(C.addEventListener)C.addEventListener('wheel',e=>{if(state=='skills'){e.preventDefault();PK.scroll=Math.max(0,PK.scroll+(e.deltaY>0?1:-1));return}if(state=='play'&&G.p.gun){e.preventDefault();press('KeyX')}},{passive:false});
+if(C.addEventListener)C.addEventListener('wheel',e=>{if(state=='inv'){e.preventDefault();INV.scroll=Math.max(0,Math.min(INV.maxScroll||0,(INV.scroll||0)+(e.deltaY>0?1:-1)));return}if(state=='skills'){e.preventDefault();PK.scroll=Math.max(0,PK.scroll+(e.deltaY>0?1:-1));return}if(state=='play'&&G.p.gun){e.preventDefault();press('KeyX')}},{passive:false});
 const rnd=(a,b)=>a+Math.random()*(b-a),ri=(a,b)=>Math.floor(rnd(a,b+1)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const SK={
 whirl:{n:'Whirlwind',a:1,cd:5,tag:'w',d:'Spin slash hits all around'},
@@ -306,7 +306,8 @@ function drawInv(t){const p=G.p;X.fillStyle='rgba(6,6,14,.94)';X.fillRect(40,30,
   const y0=Y+30+Math.ceil(Math.max(i,1)/4)*28;txt('Gear & consumables'+(tb=='box'?' (click gear to equip)':' (click to add to fusion)'),70,y0+10,15,'#9cf','left');
   const list=[{pot:1,n:'HP Potion x'+p.pot,type:'potion',tier:0}].concat(p.hipot?[{n:'Hi-Potion x'+p.hipot,type:'potion',tier:2,el:'holy'}]:[]).concat(p.bombs?[{n:'Bombs x'+p.bombs+' (B)',type:'bomb',tier:1,el:'fire'}]:[]).concat(Object.keys(p.ammoInv).filter(k=>p.ammoInv[k]>0).map(k=>({n:k+' shells x'+p.ammoInv[k],type:'ammo',tier:1,el:k=='frost'?'frost':k=='fire'?'fire':k=='poison'?'poison':null})));
   p.box.items.forEach((it,idx)=>list.push(Object.assign({idx},it)));
-  list.forEach((it,j)=>{const x=70+(j%3)*270,y=y0+22+Math.floor(j/3)*44;if(y>H-140)return;const sl=INV.sel.some(s=>(it.idx!=null&&s.i==it.idx)||(it.pot&&s.pot));
+  const _rows=Math.max(1,Math.floor((H-140-(y0+22))/44)+1),_tot=Math.ceil(list.length/3);INV.maxScroll=Math.max(0,_tot-_rows);INV.scroll=Math.min(INV.scroll||0,INV.maxScroll);if(INV.maxScroll>0){const sh=_rows*44,th=Math.max(20,sh*_rows/_tot);X.fillStyle='rgba(255,255,255,.1)';X.fillRect(885,y0+22,6,sh);X.fillStyle='#d8c7a0';X.fillRect(885,y0+22+(sh-th)*INV.scroll/INV.maxScroll,6,th);txt('drag / wheel to scroll ('+(INV.scroll+1)+'/'+(INV.maxScroll+1)+')',880,y0+10,11,'#888','right')}
+  list.forEach((it,j0)=>{const j=j0-INV.scroll*3;if(j<0)return;const x=70+(j%3)*270,y=y0+22+Math.floor(j/3)*44;if(y>H-140)return;const sl=INV.sel.some(s=>(it.idx!=null&&s.i==it.idx)||(it.pot&&s.pot));
    btn(x,y,260,40,null,()=>{if(tb=='box'){if(it.idx!=null)equip(it.idx)}else{if(it.idx==null&&!it.pot)return;const j2=INV.sel.findIndex(s=>it.pot?s.pot:s.i==it.idx);if(j2>=0)INV.sel.splice(j2,1);else if(INV.sel.length<3)INV.sel.push(it.pot?{pot:1}:{i:it.idx})}});
    X.fillStyle=sl?'rgba(120,220,255,.25)':'rgba(255,255,255,.05)';X.fillRect(x,y,260,40);itemIcon(it,x+20,y+20,30);txt(it.n,x+42,y+17,13,TIERS[it.tier||0][1],'left');
    const st=[it.atk?'ATK+'+it.atk:'',it.def?'DEF+'+it.def:'',it.hp?'HP+'+it.hp:'',it.luck?'LUK+'+it.luck:'',it.el||'',(it.fx||[]).join(' '),it.unb?'Unbreakable':''].filter(Boolean).join(' ');txt(st,x+42,y+33,11,'#aaa','left')});
@@ -1064,7 +1065,7 @@ function tDown(id,x,y){auInit();if(PORTRAIT&&!PDISM){PDISM=true;return}if(state=
  TS.drag={id,x0:x,y0:y,y,moved:0,sc0:PK&&PK.scroll||0};M.x=x;M.y=y;M.on=1}
 function tMove(id,x,y){if(TS.joy&&TS.joy.id===id){TS.joy.x=x;TS.joy.y=y;let dx=x-TS.joy.x0,dy=y-TS.joy.y0;const l=Math.hypot(dx,dy);if(l>70){TS.joy.x0=x-dx/l*70;TS.joy.y0=y-dy/l*70}setJoyKeys(dx,dy);return}
  const tb=TS.btn[id];if(tb){if(tb.b.k=='atk'){const dx=x-tb.x0,dy=y-tb.y0;if(Math.hypot(dx,dy)>22){TS.aim=Math.atan2(dy,dx)}}return}
- const d=TS.drag;if(d&&d.id===id){d.moved=Math.max(d.moved,Math.hypot(x-d.x0,y-d.y0));M.x=x;M.y=y;if(state=='skills'&&PK&&d.moved>12){PK.scroll=Math.max(0,Math.round(d.sc0-(y-d.y0)/40))}}}
+ const d=TS.drag;if(d&&d.id===id){d.moved=Math.max(d.moved,Math.hypot(x-d.x0,y-d.y0));M.x=x;M.y=y;if(state=='skills'&&PK&&d.moved>12){PK.scroll=Math.max(0,Math.round(d.sc0-(y-d.y0)/40))}if(state=='inv'&&d.moved>12){if(d.is0==null)d.is0=INV.scroll||0;INV.scroll=Math.max(0,Math.min(INV.maxScroll||0,Math.round(d.is0-(y-d.y0)/44)))}}}
 function tUp(id,x,y){if(TS.joy&&TS.joy.id===id){TS.joy=null;setJoyKeys(0,0);return}const tb=TS.btn[id];if(tb){btnPress(tb.b,false);delete TS.btn[id];if(tb.b.k=='atk')TS.aim=null;return}
  const d=TS.drag;if(d&&d.id===id){TS.drag=null;if(d.moved<14){M.x=x;M.y=y;tapAt(x,y)}}}
 function tapAt(x,y){// native text entry for name / free craft
