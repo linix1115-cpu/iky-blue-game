@@ -304,11 +304,11 @@ function drawInv(t){const p=G.p;X.fillStyle='rgba(6,6,14,.94)';X.fillRect(40,30,
  if(tb=='box'||tb=='synth'){txt('Materials',70,Y+10,15,'#9cf','left');let i=0;for(const k in p.box.mats){if(!p.box.mats[k])continue;const x=70+(i%4)*200,y=Y+22+Math.floor(i/4)*28,sl=INV.sel.some(s=>s.m==k);
    btn(x,y,190,24,null,()=>{if(tb!='synth')return;const j=INV.sel.findIndex(s=>s.m==k);if(j>=0)INV.sel.splice(j,1);else if(INV.sel.length<3)INV.sel.push({m:k})},{});X.fillStyle=sl?'rgba(120,220,255,.25)':'rgba(255,255,255,.04)';X.fillRect(x,y,190,24);X.fillStyle=MATC[k]||'#ccc';X.beginPath();X.arc(x+12,y+12,7,0,7);X.fill();txt(k+' x'+p.box.mats[k],x+26,y+17,13,CORES.includes(k)?'#fd6':'#ddd','left');i++}
   const y0=Y+30+Math.ceil(Math.max(i,1)/4)*28;txt('Gear & consumables'+(tb=='box'?' (click gear to equip)':' (click to add to fusion)'),70,y0+10,15,'#9cf','left');
-  const list=[{pot:1,n:'HP Potion x'+p.pot,type:'potion',tier:0}].concat(p.hipot?[{n:'Hi-Potion x'+p.hipot,type:'potion',tier:2,el:'holy'}]:[]).concat(p.bombs?[{n:'Bombs x'+p.bombs+' (B)',type:'bomb',tier:1,el:'fire'}]:[]).concat(Object.keys(p.ammoInv).filter(k=>p.ammoInv[k]>0).map(k=>({n:k+' shells x'+p.ammoInv[k],type:'ammo',tier:1,el:k=='frost'?'frost':k=='fire'?'fire':k=='poison'?'poison':null})));
+  const list=[{pot:1,n:'HP Potion x'+p.pot,type:'potion',tier:0}].concat(p.hipot?[{n:'Hi-Potion x'+p.hipot,type:'potion',tier:2,el:'holy'}]:[]).concat(p.bombs?[{n:'Bombs x'+p.bombs+' (B)',type:'bomb',tier:1,el:'fire'}]:[]).concat(p.bedroll?[{n:'Bedroll x'+p.bedroll+' (N: camp & save)',type:'bedroll',tier:1,bedr:1}]:[]).concat(Object.keys(p.ammoInv).filter(k=>p.ammoInv[k]>0).map(k=>({n:k+' shells x'+p.ammoInv[k],type:'ammo',tier:1,el:k=='frost'?'frost':k=='fire'?'fire':k=='poison'?'poison':null})));
   p.box.items.forEach((it,idx)=>list.push(Object.assign({idx},it)));
   const _rows=Math.max(1,Math.floor((H-140-(y0+22))/44)+1),_tot=Math.ceil(list.length/3);INV.maxScroll=Math.max(0,_tot-_rows);INV.scroll=Math.min(INV.scroll||0,INV.maxScroll);if(INV.maxScroll>0){const sh=_rows*44,th=Math.max(20,sh*_rows/_tot);X.fillStyle='rgba(255,255,255,.1)';X.fillRect(885,y0+22,6,sh);X.fillStyle='#d8c7a0';X.fillRect(885,y0+22+(sh-th)*INV.scroll/INV.maxScroll,6,th);txt('drag / wheel to scroll ('+(INV.scroll+1)+'/'+(INV.maxScroll+1)+')',880,y0+10,11,'#888','right')}
   list.forEach((it,j0)=>{const j=j0-INV.scroll*3;if(j<0)return;const x=70+(j%3)*270,y=y0+22+Math.floor(j/3)*44;if(y>H-140)return;const sl=INV.sel.some(s=>(it.idx!=null&&s.i==it.idx)||(it.pot&&s.pot));
-   btn(x,y,260,40,null,()=>{if(tb=='box'){if(it.idx!=null)equip(it.idx)}else{if(it.idx==null&&!it.pot)return;const j2=INV.sel.findIndex(s=>it.pot?s.pot:s.i==it.idx);if(j2>=0)INV.sel.splice(j2,1);else if(INV.sel.length<3)INV.sel.push(it.pot?{pot:1}:{i:it.idx})}});
+   btn(x,y,260,40,null,()=>{if(tb=='box'){if(it.idx!=null)equip(it.idx);else if(it.bedr){state='play';useBedroll()}}else{if(it.idx==null&&!it.pot)return;const j2=INV.sel.findIndex(s=>it.pot?s.pot:s.i==it.idx);if(j2>=0)INV.sel.splice(j2,1);else if(INV.sel.length<3)INV.sel.push(it.pot?{pot:1}:{i:it.idx})}});
    X.fillStyle=sl?'rgba(120,220,255,.25)':'rgba(255,255,255,.05)';X.fillRect(x,y,260,40);itemIcon(it,x+20,y+20,30);txt(it.n,x+42,y+17,13,TIERS[it.tier||0][1],'left');
    const st=[it.atk?'ATK+'+it.atk:'',it.def?'DEF+'+it.def:'',it.hp?'HP+'+it.hp:'',it.luck?'LUK+'+it.luck:'',it.el||'',(it.fx||[]).join(' '),it.unb?'Unbreakable':''].filter(Boolean).join(' ');txt(st,x+42,y+33,11,'#aaa','left')});
   if(tb=='box'&&INV.swap!=null){p.skills.forEach((id,j)=>btn(70+j*165,H-160,160,30,'Replace '+SK[id].n.slice(0,14),()=>{INV.res=useBook(INV.swap,id);INV.swap=null},{sz:11,stroke:'#fc3'}))}
@@ -1934,4 +1934,86 @@ const _deV=drawEv;drawEv=function(t,seen){const p=G.p,vis=o=>seen(o)&&Math.abs(o
  for(const d of G.decor||[])if(vis(d)){const im=IM['d_'+d.k],s=DECO_SZ[d.k]||20;if(ok(im))X.drawImage(im,d.x-s/2,d.y-s,s,s)}
  _deV(t,seen)};
 /*END:v_vfx_decor.js*/
+/*MOD:b_bedroom.js*/
+// ===== v20 rare hidden bedroom (Blue save scene) + waypoint checkpoint saves
+SAVEK.push('bedMiss');
+function inRoom(r,x,y){return r&&x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h}
+function addBedroom(){const p=G.p,m=G.m,D=[[1,0],[-1,0],[0,1],[0,-1]];G.bedR=null;G.bed={x:-99999,y:-99999,off:1};p.bedMiss=p.bedMiss||0;
+ const want=p.bedMiss>=2||Math.random()<.3+Math.min(.3,(p.luck||0)*.003);if(!want){p.bedMiss++;return}
+ const R0=G.rooms[0],RE=G.rooms[G.rooms.length-1];
+ for(let tr=0;tr<4000;tr++){const x=ri(3,MW-4),y=ri(3,MH-4);if(m[y][x]!=1)continue;const d=D[ri(0,3)],fx=x-d[0],fy=y-d[1];if(m[fy]?.[fx]!==0)continue;if(inRoom(R0,fx,fy)||inRoom(RE,fx,fy)||(G.sec&&Math.hypot(G.sec.x-x,G.sec.y-y)<8))continue;
+  if(G.wp&&Math.hypot(G.wp.x/T-x,G.wp.y/T-y)<6)continue;
+  const cx=x+d[0]*3,cy=y+d[1]*3;let okk=true;for(let yy=cy-3;yy<=cy+3&&okk;yy++)for(let xx=cx-3;xx<=cx+3;xx++){if(xx==x&&yy==y)continue;if(yy<1||xx<1||yy>=MH-1||xx>=MW-1||m[yy][xx]!=1){okk=false;break}}if(!okk)continue;
+  for(let yy=cy-2;yy<=cy+2;yy++)for(let xx=cx-2;xx<=cx+2;xx++)m[yy][xx]=0;const crack=Math.random()<.45;if(!crack)m[y][x]=0;
+  G.bedR={x,y,cx,cy,crack,open:!crack,rev:0,used:0};G.bed={x:(cx+.5)*T,y:(cy-.3)*T};p.bedMiss=0;
+  G.decor=(G.decor||[]).filter(o=>Math.hypot(o.x/T-cx,o.y/T-cy)>3.5);G.decor.push({x:(cx-1.2)*T,y:(cy-.8)*T,k:'candles'},{x:(cx+2)*T,y:(cy-.6)*T,k:'urn'},{x:(cx+1.8)*T,y:(cy+1.6)*T,k:'candles'});
+  G.flat=(G.flat||[]).filter(o=>Math.hypot(o.x/T-cx,o.y/T-cy)>3.5);G.flat.push({x:(cx+.5)*T,y:(cy+.9)*T,k:'rug',a:0,s:1});return}
+ p.bedMiss++}
+const _gfBv20=genFloor;genFloor=function(){_gfBv20();G.wpSaved=0;G.rested=null;addBedroom()};
+const _dfBv20=drawFlat;drawFlat=function(q){if(q.k=='rug'){X.save();X.fillStyle='rgba(120,30,40,.75)';X.fillRect(q.x-40,q.y-26,80,52);X.strokeStyle='rgba(230,190,110,.8)';X.lineWidth=2;X.strokeRect(q.x-36,q.y-22,72,44);X.restore();return}_dfBv20(q)};
+const _nsBv20=nearSave;nearSave=function(){const b=_nsBv20();return b&&b[1]&&b[1].off?(G.wp?['Waypoint',G.wp,dist(G.p,G.wp)]:null):b};
+let _pingBv20=0;
+const _upBv20=update;update=function(dt){_upBv20(dt);if(state!='play'||!G||!G.p)return;const p=G.p,B=G.bedR;
+ if(G.wp&&G.wp.on&&!G.wpSaved){G.wpSaved=1;const hp=p.hp;doSave();p.hp=hp;flash('Checkpoint reached - game saved')}
+ if(B){const c={x:(B.x+.5)*T,y:(B.y+.5)*T},d=dist(p,c);
+  if(!B.open){if(p.ping>0&&d<320)B.rev=1;if(d<46&&(p.atkT>0||K.KeyW||K.KeyA||K.KeyS||K.KeyD||TS.joy)){B.open=1;G.m[B.y][B.x]=0;sfx('boom');SH=5;flash('A hidden door! Candlelight beyond...')}}
+  if(p.ping>0&&!_pingBv20&&!B.used){const bd=dist(p,G.bed);if(bd<700){const a=Math.atan2(G.bed.y-p.y,G.bed.x-p.x),r=Math.min(bd,120);G.parts.push({x:p.x+Math.cos(a)*r,y:p.y+Math.sin(a)*r-10,t:1.6,txt:'\u2665',c:'#ff8ab0'});sfx('chime')}}
+  const sr=G.seen[B.cy];if(sr&&sr[B.cx]&&!B.found){B.found=1;galUnlock('bedroom')}}
+ _pingBv20=p.ping>0?1:0};
+const _scBv20=startCut;startCut=function(mode){const B=G.bedR;if(!B||G.bed.off)return;if(B.used){const hp=G.p.hp;doSave();flash('Game saved (already rested here)');return}B.used=1;G.rested=G.floor;_scBv20(mode)};
+const _upB2v20=update;update=function(dt){const was=state;_upB2v20(dt);if(was=='cut'&&state=='play'&&G.rested===G.floor&&!G.restMsg){G.restMsg=G.floor;G.p.hp=G.p.mhp;flash('Well Rested: full heal, +10% XP this floor')}};
+const _gxBv20=gainXp;gainXp=function(n){_gxBv20(G&&G.rested===G.floor?Math.round(n*1.1):n)};
+// cracked wall hint drawn in 2D when revealed by ping
+const _deBv20=drawEv;drawEv=function(t,seen){_deBv20(t,seen);const B=G.bedR;if(B&&!B.open&&B.rev){X.strokeStyle='rgba(255,170,200,.8)';X.lineWidth=1.5;X.beginPath();X.moveTo(B.x*T+8,B.y*T+6);X.lineTo(B.x*T+16,B.y*T+16);X.lineTo(B.x*T+12,B.y*T+26);X.stroke()}};
+GALL.push({id:'bedroom',n:'The Hidden Bedroom',img:'p_bluep',spk:'blue',L:['A narrow gap in the wall. Candlelight flickers beyond.','A small, warm room: a bed, a worn rug, candles burning low.','Blue: "Somebody left us a hideaway~ Lock the door, hero."','Well Rested: full heal, +10% XP for this floor.']});
+function forceBedroom(){G.p.bedMiss=9;addBedroom()}
+/*END:b_bedroom.js*/
+/*MOD:r_bedroll.js*/
+// ===== v20 Bedroll: camp anywhere (no enemies within 8 tiles), stack 5, start with 2
+SAVEK.push('bedroll');MATC['Cloth Scrap']='#c8b89a';MATC['Leather']='#8a5a3a';
+const _npRv20=newPlayer;newPlayer=function(){const p=_npRv20();p.bedroll=2;return p};
+const CAMPL=['Iky gathers scraps of wood and strikes a spark. A small fire catches.','He cooks a simple meal over the flames. It actually smells good.','He eats in the quiet, watching the shadows dance.','He unrolls the bedroll on the stone floor and lies down.','He dreams of Blue, smiling at him in the warm light.','The fire burns down to embers. Game Saved.'];
+let CAMP=null;
+function useBedroll(){const p=G.p;if(!(p.bedroll>0)){flash('No bedrolls left');return}
+ if(G.ens.some(e=>e.hp>0&&!e.fac&&dist(e,p)<8*T)){flash('Too dangerous to camp - enemies nearby');sfx('alarm');return}
+ p.bedroll--;CAMP={t:0,ph:-1};state='camp';galUnlock('camp')}
+const CPH=[0,2.2,4.4,6.4,8.2,11.2,12.4];
+function campEnd(){const rep=CAMP&&CAMP.rep;CAMP=null;if(rep){state='gallery';return}state='play';const hp=G.p.hp;doSave();G.p.hp=hp;flash('Game Saved');sfx('chime')}
+const _upRv20=update;update=function(dt){if(state=='camp'){if(CAMP){CAMP.t+=dt;let ph=0;while(ph<6&&CAMP.t>=CPH[ph+1])ph++;if(ph!==CAMP.ph){CAMP.ph=ph;
+   if(ph==0){noise(.8,.15,900,.6);tone(120,.4,'sine',.08,80)}if(ph==1){noise(1.4,.08,5000,1.5,'highpass');noise(1,.05,3000,2)}if(ph==2)sfx('ui');if(ph==3)noise(.5,.06,500,.6,'lowpass');
+   if(ph==4){[523,659,784,988,784,659].forEach((f,i)=>tone(f,1.4,'sine',.035,null,AU.mg,i*.45))}}
+  if(ph<4&&Math.random()<dt*6)noise(.05,.05,rnd(1500,3000),3);if(ph==1&&Math.random()<dt*4)noise(.12,.04,6000,2,'highpass');if(CAMP.t>CPH[6])campEnd()}return}_upRv20(dt)};
+function drawCamp(t,c){const ph=Math.max(0,c.ph),fx=W/2+60,fy=H*.6,lit=ph>0||c.t>1,fl=1+Math.sin(t*9)*.06+Math.sin(t*23)*.04;X.fillStyle='#05040a';X.fillRect(0,0,W,H);
+ if(ph<4||ph>=5){if(lit){const g=X.createRadialGradient(fx,fy,4,fx,fy,330*fl);g.addColorStop(0,'rgba(255,160,70,.5)');g.addColorStop(.4,'rgba(140,60,30,.22)');g.addColorStop(1,'rgba(0,0,0,0)');X.fillStyle=g;X.fillRect(0,0,W,H)}
+  X.fillStyle='#2a2830';X.fillRect(0,fy+30,W,H);X.fillStyle='#3a2416';X.save();X.translate(fx,fy+18);X.rotate(.3);X.fillRect(-30,-4,60,8);X.rotate(-.6);X.fillRect(-30,-4,60,8);X.restore();
+  if(lit){const k=Math.min(1,c.t/1.5);for(let i=0;i<5;i++){const h=(30+i*5)*fl*k*(1+Math.sin(t*12+i)*.15);X.fillStyle=['#ff4a1a','#ff7a20','#ffb030','#ffd060','#fff0b0'][i];X.globalAlpha=.75;X.beginPath();X.ellipse(fx+Math.sin(t*7+i)*3,fy-h/2+14,12-i*2,h/2,0,0,7);X.fill()}X.globalAlpha=1;
+   for(let i=0;i<10;i++){const q=(t*.6+i*.13)%1;X.fillStyle='rgba(255,190,90,'+(1-q)+')';X.fillRect(fx+Math.sin(i*3+t)*18*q,fy-26-q*160,2,2)}}
+  if(ph==1||ph==2){X.strokeStyle='#555';X.lineWidth=3;X.beginPath();X.moveTo(fx-50,fy-40);X.lineTo(fx+50,fy-40);X.stroke();X.fillStyle=ph==1?'#a0522d':'#7a3a1a';X.beginPath();X.ellipse(fx,fy-40,16,8,0,0,7);X.fill();if(ph==1)for(let i=0;i<3;i++){X.fillStyle='rgba(220,220,220,'+(.2-.06*i)+')';X.beginPath();X.arc(fx+Math.sin(t*2+i)*8,fy-60-i*16-(t*20%16),6+i*3,0,7);X.fill()}}
+  // Iky: crouched at fire, sitting, then lying on bedroll
+  X.save();if(ph<=2){X.translate(fx-120,fy+24);X.scale(1.8,1.8);iky(0,0,0,t*1000)}else{X.fillStyle='#6a5a3a';X.fillRect(fx-260,fy+18,150,26);X.fillStyle='#8a7a5a';X.fillRect(fx-260,fy+18,30,26);if(ph>=3&&c.t>CPH[3]+.6){X.translate(fx-185,fy+28);X.rotate(-Math.PI/2);X.scale(1.6,1.6);iky(0,0,0,0)}}X.restore();
+  if(ph==2){X.fillStyle='#c08040';X.beginPath();X.arc(fx-96,fy-20,5,0,7);X.fill()}}
+ if(ph==4){const k=Math.min(1,(c.t-CPH[4])/1.2),out=Math.max(0,(c.t-CPH[5]+1)/1);X.globalAlpha=k*(1-out*.6);const g=X.createRadialGradient(W/2,H/2-20,20,W/2,H/2,H*.8);g.addColorStop(0,'#fff2e6');g.addColorStop(.5,'#e8b8d8');g.addColorStop(1,'#2a1a3a');X.fillStyle=g;X.fillRect(0,0,W,H);
+  const im=IM.p_bluep;if(ok(im)){X.save();X.filter='blur(1.5px)';X.globalAlpha*=.9;const s=Math.min(360/im.naturalWidth,420/im.naturalHeight);X.drawImage(im,W/2-im.naturalWidth*s/2,H/2-240,im.naturalWidth*s,im.naturalHeight*s);X.restore()}
+  for(let i=0;i<40;i++){const a=i*2.4+t*.3,r=120+((i*53+t*30)%260);X.fillStyle='rgba(255,255,255,'+(.25+.25*Math.sin(t*3+i))+')';X.beginPath();X.arc(W/2+Math.cos(a)*r,H/2-40+Math.sin(a)*r*.7,1.5+(i%3),0,7);X.fill()}X.globalAlpha=1}
+ txt(c.rep?'Dreams of Blue':'Camp',W/2,44,24,'#ffd9a0');dbox('sys',CAMPL[Math.min(5,ph)],null);
+ if(c.t>CPH[5]){X.fillStyle='rgba(0,0,0,'+Math.min(1,(c.t-CPH[5])/.8)+')';X.fillRect(0,0,W,H);if(c.t>CPH[5]+.6)txt('Game Saved',W/2,H/2,28,'#ffe9a8')}
+ btn(0,0,W,H,null,()=>{if(CAMP)CAMP.t=Math.max(CAMP.t,CPH[Math.min(6,CAMP.ph+1)])});btn(W-160,56,140,40,'Skip >>',()=>{if(CAMP)CAMP.t=CPH[5]},{sz:15})}
+const _drRv20=draw;draw=function(t){if(state=='camp'){BT=[];if(CAMP)drawCamp(t/1000,CAMP);return}_drRv20(t)};
+const _prRv20=press;press=function(c,k){if(state=='camp'){if(CAMP)CAMP.t=c=='Escape'?CPH[5]:Math.max(CAMP.t,CPH[Math.min(6,CAMP.ph+1)]);return}if(state=='play'&&c=='KeyN'){useBedroll();return}_prRv20(c,k)};
+// HUD quick slot
+const _drR2v20=draw;draw=function(t){_drR2v20(t);if(state=='play'&&G&&G.p&&G.p.bedroll>0){const tc=touchOn(),x=tc?W/2+230:W/2+260,y=H-60,w=tc?96:92,h=tc?50:30;btn(x,y,w,h,null,()=>useBedroll());X.fillStyle='rgba(40,28,18,.85)';X.fillRect(x,y,w,h);X.strokeStyle='#c8a070';X.strokeRect(x,y,w,h);txt('CAMP x'+G.p.bedroll+(tc?'':' [N]'),x+w/2,y+h/2+5,12,'#ffd9a0')}};
+// drops, shop, crafting
+const _dmRv20=dropMats;dropMats=function(e){_dmRv20(e);if(Math.random()<.08+G.p.luck/1500)addMat(Math.random()<.6?'Cloth Scrap':'Leather',1);if(Math.random()<(e.boss?.5:.012)&&G.p.bedroll<5){G.p.bedroll++;flash('Found a Bedroll!')}};
+const _slRv20=shopList;shopList=function(){const L=_slRv20();if(SHOP.k!='tavern')L.splice(2,0,['Bedroll (camp & save, max 5)',35,()=>{if(G.p.bedroll>=5){G.p.gold+=35;SHOP.msg='You can\'t carry more bedrolls.'}else G.p.bedroll++}]);return L};
+const _piRv20=parseIdea;parseIdea=function(txt0){if(/bedroll|bed roll|sleeping bag/i.test(txt0||'')){const o={type:'bedroll',name:'Bedroll',req:{'Cloth Scrap':2,'Leather':1},st:{},fx:[],mats:['Cloth Scrap','Leather'],slot:''};mwReq(o);return o}return _piRv20(txt0)};
+const _ciRv20=craftIdea;craftIdea=function(o){if(o&&o.type=='bedroll'){const p=G.p;if(p.bedroll>=5||!hasMats(o.req))return null;useMats(o.req);p.bedroll++;return{n:'Bedroll',name:'Bedroll'}}return _ciRv20(o)};
+const _fuRv20=fuse;fuse=function(sel){const ms=sel.filter(s=>s.m).map(s=>s.m);if(ms.includes('Cloth Scrap')&&ms.includes('Leather')){return craftIdea(parseIdea('bedroll'))}return _fuRv20(sel)};
+GALL.push({id:'camp',n:'Dreams of Blue',img:'p_bluep',spk:'',L:CAMPL});
+const _gpRv20=galPlay;galPlay=function(g){if(g.id=='camp'){CAMP={t:0,ph:-1,rep:1};state='camp';return}_gpRv20(g)};
+/*END:r_bedroll.js*/
+/*MOD:e_taunt.js*/
+// ===== v20 Bone Golem taunt: nearby enemies target the golem while it lives
+const _pkTv20=pickT;pickT=function(e){const g=e.taunt;if(g&&!e.boss&&g.hp>0&&g.t>0&&(G.mins||[]).includes(g)&&dist(g,e)<320)return g;if(g)e.taunt=null;
+ if(!e.boss&&!e.fac&&G.mins){const gl=G.mins.find(m=>m.big&&m.hp>0&&m.t>0&&dist(m,e)<160);if(gl){e.taunt=gl;return gl}}return _pkTv20(e)};
+/*END:e_taunt.js*/
 </script></body></html>
