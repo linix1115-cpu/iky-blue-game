@@ -1778,4 +1778,40 @@ const _tdP=tDown;tDown=function(id,x,y){if(state=='portal'&&touchOn()){auInit();
 const _tuP=tUp;tUp=function(id,x,y){if(PS.hold===id)PS.hold=null;_tuP(id,x,y)};
 const _upP2=update;update=function(dt){_upP2(dt);if(state=='portal'&&PS.hold!=null)pAttack()};
 GALL.push({id:'portal',n:'Invasion Portal',img:'f_0',spk:'',L:['A tear in the dungeon wall pulses violet.','Iky steps through... the world turns sideways.','"Hold on, babe - I\'m right behind you!"']});
+/*MOD:c_audio.js*/
+// ===== v20 STAGE C: audio (surface footsteps, Blue spells, layered biome music, boss + portal themes, ducking)
+const SURF=['stone','dirt','stone','grass','stone','wood','water','chitin','dirt'];
+function surfNow(){if(state=='bath')return 'water';if(state=='portal')return 'stone';return SURF[Math.min(G&&G.floor||0,8)]}
+function mnoise(dur,vol,fq,q,type,delay){const c=AU.ctx;if(!c)return;const t=c.currentTime+(delay||0),s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();s.buffer=noiseBuf();f.type=type||'bandpass';f.frequency.value=fq;f.Q.value=q||1;g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);s.connect(f);f.connect(g);g.connect(AU.mg);s.start(t);s.stop(t+dur+.05)}
+const STEPS={stone:v=>{noise(.05,.07*v,rnd(1600,2200),2.5);tone(rnd(110,140),.04,'sine',.05*v,70)},dirt:v=>noise(.07,.07*v,rnd(350,500),.8,'lowpass'),
+ grass:v=>{noise(.09,.05*v,rnd(3000,4200),1.2,'highpass');noise(.05,.03*v,600,1)},wood:v=>{tone(rnd(180,230),.07,'triangle',.08*v,120);noise(.04,.04*v,900,2)},
+ water:v=>{noise(.14,.07*v,rnd(900,1400),3);tone(rnd(500,700),.08,'sine',.03*v,1200,null,.03)},chitin:v=>{noise(.03,.07*v,rnd(2500,3500),4);tone(rnd(900,1200),.03,'square',.02*v,400)}};
+SFX.step=()=>STEPS[surfNow()](1);
+SFX.bstep=()=>STEPS[surfNow()](.5);
+SFX.bcast=()=>{[1318,1568,2093].forEach((f,i)=>tone(f,.25,'sine',.04,f*1.5,null,i*.04));noise(.2,.05,7000,3,null,.02)};
+SFX.bheal=()=>{[784,988,1318].forEach((f,i)=>tone(f,.5,'sine',.05,null,null,i*.08))};
+const _upC=update;update=function(dt){const b=G&&G.blueE,cd0=b?b.cd:0,p=G&&G.p,px=p&&p.x,py=p&&p.y,bx=b&&b.x,by=b&&b.y,hp0=p&&p.hp;_upC(dt);if(!G||!p)return;
+ if(state=='play'){const mv=Math.hypot(p.x-px,p.y-py)/Math.max(dt,1e-3);if(mv>40&&!p.roll){AU.stA=(AU.stA||0)+dt*mv/150;if(AU.stA>.34){AU.stA=0;sfx('step')}}else AU.stA=.3;
+  if(p.blue&&b){const bm=Math.hypot(b.x-bx,b.y-by)/Math.max(dt,1e-3);if(bm>40){AU.stB=(AU.stB||0)+dt*bm/150;if(AU.stB>.3){AU.stB=0;sfx('bstep')}}
+   if(b.cd>cd0+.3)sfx('bcast');if(p.hp>hp0+3&&!p.regen)sfx('bheal')}}};
+// ducking: loud sfx briefly pull music down; dialogue / pause / cutscenes hold it lower
+const _sfxC=sfx;sfx=function(n){if(['boom','roar','gun','level','chest','riposte','die'].includes(n))AU.duck=Math.max(AU.duck||0,n=='roar'||n=='level'?.9:.5);_sfxC(n)};
+function musGain(){if(!AU.ctx)return;const hold=['story','cutscene','pause','inv','cut','bath','gallery'].includes(state)?.45:1,d=AU.duck>0?.35:1;AU.duck=Math.max(0,(AU.duck||0)-.15);
+ AU.mg.gain.setTargetAtTime(AU.vol.music*hold*d,AU.ctx.currentTime,.12)}
+// layered procedural music: root/scale/tempo per biome, layers add with danger
+const MUS=[{r:55,sc:[0,3,5,7,10],pad:'triangle',arp:'sine'},{r:49,sc:[0,1,5,7,8],pad:'sawtooth',arp:'triangle'},{r:58.3,sc:[0,3,5,6,7,10],pad:'triangle',arp:'square'},{r:61.7,sc:[0,2,3,7,9],pad:'sine',arp:'triangle'},
+ {r:46.2,sc:[0,1,3,6,7],pad:'sawtooth',arp:'triangle'},{r:65.4,sc:[0,2,5,7,9],pad:'sine',arp:'sine'},{r:51.9,sc:[0,3,5,7,10],pad:'sine',arp:'triangle'},{r:43.7,sc:[0,1,4,6,7],pad:'sawtooth',arp:'square'},{r:65.4,sc:[0,2,4,7,9],pad:'triangle',arp:'sine'}];
+const nt=(r,sc,i,o)=>r*Math.pow(2,(o||0)+(sc[((i%sc.length)+sc.length)%sc.length]+12*Math.floor(i/sc.length))/12);
+musTick=function(){if(!AU.ctx||AU.mute)return;musGain();const s=AU.step++,mg=AU.mg;
+ if(state=='portal'){const r=73.4,sc=[0,2,3,5,7,8,10],L=[0,2,4,7,4,2,5,4,0,2,4,9,7,4,2,1];tone(nt(r,sc,L[s%16],2),.13,'square',.035,null,mg);if(s%2==0)tone(nt(r,sc,[0,0,5,3][(s>>3)%4],0),.28,'sawtooth',.06,null,mg);if(s%4==0)mnoise(.08,.18,150,.7,'lowpass');if(s%4==2)mnoise(.06,.08,4000,1,'highpass');return}
+ if(!G||!['play','inv','pause','story','menu','shop'].includes(state)){if(s%8==0)tone(nt(55,[0,3,7,10],(s>>3)%4,2),2,'sine',.03,null,mg);if(s%32==0)tone(55,6,'triangle',.05,null,mg);return}
+ const f=Math.min(G.floor,8),M=MUS[f],boss=state=='play'&&G.ens.some(e=>e.boss&&e.aw);
+ if(boss){const sc=[0,1,3,6,7,8],r=M.r*.75;if(s%2==0)tone(nt(r,sc,[0,0,3,0,4,3,1,0][(s>>1)%8],1),.22,'sawtooth',.06,null,mg);if(s%4==0)mnoise(.14,.22,110,.5,'lowpass');if(s%8==4)mnoise(.1,.12,1800,1);
+  if(s%16==0)tone(nt(r,sc,[0,4,3,1][(s>>4)%4],2),2.2,'square',.025,null,mg);if(s%2==1)mnoise(.03,.04,6000,1,'highpass');return}
+ const near=G.ens.filter(e=>e.aw&&!e.fac&&dist(e,G.p)<360).length,lvl=near>4?2:near>0?1:0;
+ if(s%32==0){tone(M.r,6,M.pad,.05,M.r*.99,mg);tone(nt(M.r,M.sc,2,1),6,'sine',.025,null,mg)}
+ if(s%4==0)tone(nt(M.r,M.sc,[0,2,4,3,1,2,4,5][(s>>2)%8],2),1.1,M.arp,.03,null,mg);
+ if(lvl>=1){if(s%4==0)tone(nt(M.r,M.sc,[0,0,3,2][(s>>4)%4],0),.3,'sawtooth',.045,null,mg);if(s%8==0)mnoise(.12,.12,130,.6,'lowpass')}
+ if(lvl>=2){if(s%2==0)tone(nt(M.r,M.sc,(s*3)%7,3),.12,'square',.018,null,mg);if(s%8==4)mnoise(.08,.1,2200,1)}};
+/*END:c_audio.js*/
 </script></body></html>
