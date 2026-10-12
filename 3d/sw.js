@@ -1,5 +1,5 @@
 // Death Dungeon 3D (beta) service worker, scope /3d/. Saves live in localStorage and are never touched here.
-const VERSION='3d-20261012153012';const CACHE='iky-blue-3d-'+VERSION;
+const VERSION='3d-20261012154246';const CACHE='iky-blue-3d-'+VERSION;
 const SHELL=['./','./index.html','./r3.js','./three.module.js','./manifest.webmanifest','../icons/icon-192.png','../icons/icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith('iky-blue-3d-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});

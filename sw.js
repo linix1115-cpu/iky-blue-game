@@ -1,5 +1,5 @@
 // Death Dungeon root service worker (3D main app). Saves live in localStorage and are never touched.
-const VERSION='r20261012153012';const CACHE='dd-root-'+VERSION;
+const VERSION='r20261012154246';const CACHE='dd-root-'+VERSION;
 const SHELL=['./','./index.html','./manifest.webmanifest','./3d/r3.js','./3d/three.module.js','./icons/icon-192.png','./icons/icon-512.png'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>(k.startsWith('dd-root-')&&k!==CACHE)||/^iky-blue-v/.test(k)).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});

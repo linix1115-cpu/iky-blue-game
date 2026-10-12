@@ -1,7 +1,7 @@
 // Death Dungeon 3D renderer: draws the 2D game's world state (G) with three.js. Game logic/UI stay in the 2D script.
 import * as T3 from './three.module.js';
 const R3={ok:false,frames:0,used:false,stats:{}};window.R3=R3;
-let R,S,cam,hemi,amb,pl,cv,floorMesh,wallMesh,fowTex,fowData,curM=null,mapSum=-1,wallCells=[],cutSt=null,torchL=[],ptsGeo,pts,blobT,glowT,q0=null;
+let sun,R,S,cam,hemi,amb,pl,cv,floorMesh,wallMesh,fowTex,fowData,curM=null,mapSum=-1,wallCells=[],cutSt=null,torchL=[],ptsGeo,pts,blobT,glowT,q0=null;
 const UNIT=()=>T; // px per tile
 const TEX=new Map();
 function tex(k){const im=IM[k];if(!im||!im.complete||!im.naturalWidth)return null;let t=TEX.get(k);if(!t){t=new T3.Texture(im);t.colorSpace=T3.SRGBColorSpace;t.anisotropy=4;t.needsUpdate=true;TEX.set(k,t)}return t}
@@ -16,6 +16,7 @@ function init(){
  hemi=new T3.HemisphereLight(0x8a96c8,0x2a1c14,1.1);amb=new T3.AmbientLight(0x50464a,.7);S.add(hemi,amb);
  pl=new T3.PointLight(0xffe0b8,30,14,1.1);S.add(pl);
  for(let i=0;i<6;i++){const L=new T3.PointLight(0xff8a3a,0,11,1.2);S.add(L);torchL.push(L)}
+ sun=new T3.DirectionalLight(0xfff1c8,0);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);const sc=sun.shadow.camera;sc.left=-22;sc.right=22;sc.top=22;sc.bottom=-22;sc.near=1;sc.far=80;sun.shadow.bias=-.002;sun.shadow.radius=4;S.add(sun,sun.target);
  blobT=canvasTex((g,n)=>{const gr=g.createRadialGradient(n/2,n/2,0,n/2,n/2,n/2);gr.addColorStop(0,'rgba(0,0,0,.75)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n)});
  glowT=canvasTex((g,n)=>{const gr=g.createRadialGradient(n/2,n/2,0,n/2,n/2,n/2);gr.addColorStop(0,'#fff');gr.addColorStop(.25,'rgba(255,255,255,.7)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,n,n)});
  ptsGeo=new T3.BufferGeometry();const N=1500;ptsGeo.setAttribute('position',new T3.BufferAttribute(new Float32Array(N*3),3));ptsGeo.setAttribute('color',new T3.BufferAttribute(new Float32Array(N*3),3));
@@ -86,7 +87,13 @@ R3.frame=function(t,cm,SH){if(!R3.ok)return;R3.used=true;R3.frames++;gen++;gi=0;
  const view=Math.max(1,W/H),zk=1/(typeof ZOOM!='undefined'?ZOOM:1);cam.position.set(cx,19*zk,cz+12*zk);if(cam.far!==120){cam.far=120;cam.updateProjectionMatrix()}S.fog.near=22*zk;S.fog.far=44*zk;R3.zk=zk;cam.lookAt(cx,0,cz-.3);
  cutWalls(p.x/T,p.y/T);
  // lights
- pl.position.set(p.x/T,3.4,p.y/T+.4);pl.intensity=20+Math.sin(t*7)*.5;
+ {const LT=window.LT,P=LT?LT.prof():{amb:.7,sun:0,fog:0x05040a},br=LT?LT.b:1,lr=LT?LT.r():1;
+  pl.position.set(p.x/T,3.4,p.y/T+.4);pl.distance=14*lr*zk;pl.intensity=(20+Math.sin(t*7)*.5)*lr*lr*zk*(P.k=='day'?.7:1)*(.7+.3*br);
+  amb.intensity=.7*P.amb*br;hemi.intensity=1.1*P.amb*br;if(P.tint){amb.color.setHex(P.tint);amb.color.lerp(new T3.Color(0x50464a),.6)}else amb.color.setHex(0x50464a);
+  if(P.k=='day'){hemi.color.setHex(0xbcd4ff);hemi.groundColor.setHex(0x5a4a30)}else{hemi.color.setHex(0x8a96c8);hemi.groundColor.setHex(0x2a1c14)}
+  sun.intensity=P.sun*br;sun.color.setHex(P.sunC||0xffffff);sun.position.set(cx-5,30,cz+7);sun.target.position.set(cx,0,cz);sun.castShadow=GFX.q!='low'&&P.sun>0;
+  S.fog.color.setHex(P.fog);S.background.setHex(P.fog).multiplyScalar(P.k=='day'?.3:1);if(P.k=='day'){S.fog.near=30*zk;S.fog.far=70*zk}
+  R.toneMappingExposure=1.2*(.75+.25*br)*(P.k=='day'?1.1:1)}
  const tl=(G.torch||[]).map(tc=>[tc,(tc.x-p.x)**2+(tc.y-p.y)**2]).sort((a,b)=>a[1]-b[1]);
  torchL.forEach((L,i)=>{const e=tl[i];if(e&&e[1]<(18*T)**2&&G.seen[e[0].y/T|0]&&G.seen[e[0].y/T|0][e[0].x/T|0]){L.position.set(e[0].x/T,1.5,e[0].y/T+.7);L.intensity=16+Math.sin(t*11+i)*1.2+Math.sin(t*23+i*2)*.8}else L.intensity=0});
  const seen=o=>{const r=G.seen[o.y/T|0];return r&&r[o.x/T|0]};const vis=o=>{const r=G.seen[o.y/T|0];return r&&r[o.x/T|0]==2};

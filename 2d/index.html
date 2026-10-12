@@ -2243,4 +2243,33 @@ const _hwL=heldW;heldW=function(x,y,face,mv,behind){const p=G.p;if(!p||p.roll>0|
 // legacy procedural weapon (drawn on top of the sprite) caused the second weapon: painterly frames + heldW now cover all cases
 drawWpn=function(){};
 /*END:l_onewpn.js*/
+/*MOD:k_light.js*/
+// ===== v21 Lighting: radius x1.6 (scales with zoom), Brightness slider, Light stat + Lanterns, per-world light profiles
+const WORLDS=['crypt','cathedral','forest','ruins','desert','snow','crystal','hive'];
+const LPROF={crypt:{k:'dark',amb:.55,dark:.8,sun:0,fog:0x05040a},cathedral:{k:'dark',amb:.7,dark:.74,sun:0,fog:0x0a0710},hell:{k:'dark',amb:.6,dark:.76,sun:0,fog:0x1a0503,tint:0xff6040},
+ forest:{k:'day',amb:2.1,dark:.12,sun:2.2,fog:0x6f8f6a,sunC:0xfff1c8},ruins:{k:'day',amb:2,dark:.15,sun:2.1,fog:0x9a9480,sunC:0xffe8c0},desert:{k:'day',amb:2.3,dark:.08,sun:2.6,fog:0xd8b880,sunC:0xfff0b0},
+ snow:{k:'day',amb:2.2,dark:.1,sun:2,fog:0xc8d4e4,sunC:0xe8f0ff},limbo:{k:'day',amb:1.8,dark:.22,sun:1.4,fog:0x8a8a9a,sunC:0xe0e0ff},
+ crystal:{k:'dim',amb:.9,dark:.6,sun:0,fog:0x0a1428,tint:0x60a0ff},hive:{k:'dim',amb:.85,dark:.62,sun:0,fog:0x1a1806,tint:0xffd040}};
+function worldId(){if(!G)return'crypt';if(G.world)return G.world;return WORLDS[Math.max(0,Math.min(7,G.floor|0))]}
+const LT={b:+(localStorage.getItem('dd_bright')||1),
+ prof(){return LPROF[worldId()]||LPROF.crypt},
+ lightStat(){const p=G&&G.p;if(!p)return 0;let s=(p.lantern|0)*15;try{for(const k in (p.eq||{})){const it=p.eq[k];if(it&&it.light)s+=it.light}}catch(e){}return Math.min(80,s)},
+ r(){return 1.6*(1+LT.lightStat()/100)/Math.max(.5,typeof ZOOM!='undefined'?ZOOM:1)**.5},
+ dark(){const d=LT.prof().dark;return Math.max(0,Math.min(.95,d*(1.6-.6*LT.b)))}};
+window.LT=LT;
+function setBright(v){LT.b=Math.max(.5,Math.min(2,Math.round(v*20)/20));try{localStorage.setItem('dd_bright',LT.b)}catch(e){}}
+function brightUI(x,y,w){txt('Brightness: '+Math.round(LT.b*100)+'%   Light: +'+LT.lightStat()+'%',x,y-8,13,'#fe9','left');btn(x,y,40,32,'-',()=>setBright(LT.b-.1),{sz:18});btn(x+w-40,y,40,32,'+',()=>setBright(LT.b+.1),{sz:18});
+ const bx=x+48,bw=w-96,f=(LT.b-.5)/1.5;X.fillStyle='rgba(255,255,255,.12)';X.fillRect(bx,y+12,bw,8);X.fillStyle='#ffe08a';X.fillRect(bx,y+12,bw*f,8);X.beginPath();X.arc(bx+bw*f,y+16,10,0,7);X.fill();
+ for(let i=0;i<=15;i++){const z=.5+i*.1;btn(bx+bw*(z-.5)/1.5-bw/32,y,bw/16,32,null,()=>setBright(z))}}
+const _diLT=drawInv;drawInv=function(t){_diLT(t);if(INV.tab=='settings')brightUI(W-380,H-240,300)};
+const _dpLT=drawPause;drawPause=function(t){_dpLT(t);if(PM.view=='main')brightUI(30,H-130,300)};
+// 2D renderer: bigger light, per-world darkness, explored tiles faintly lit
+(function(){let s=light25.toString();s=s.replace("'rgba(3,2,10,.82)'","'rgba(3,2,10,'+LT.dark()+')'").replace("const lr=(has('ping')?250:230)+Math.sin(t*3)*4;","const lr=((has('ping')?250:230)+Math.sin(t*3)*4)*LT.r();");
+ s=s.replace("g.globalCompositeOperation='destination-out';","g.globalCompositeOperation='destination-out';{const ex=LT.b*.22;if(ex>0){g.globalAlpha=Math.min(.6,ex);g.fillStyle='#000';const x0=Math.max(0,cx/T|0),y0=Math.max(0,cy/T|0),x1=Math.min(MW,((cx+W/ZM)/T|0)+1),y1=Math.min(MH,((cy+H/ZM)/T|0)+1);for(let yy=y0;yy<y1;yy++){const r=G.seen[yy];for(let xx=x0;xx<x1;xx++)if(r[xx]==2)g.fillRect((xx*T-cx)*ZM,(yy*T-cy)*ZM,T*ZM+1,T*ZM+1)}}}");
+ (0,eval)(s)})();
+// Lanterns (permanent Light upgrades) in the shop
+const _slLT=shopList;shopList=function(){const L=_slLT(),p=G.p,lv=p.lantern|0;if(SHOP.k!='tavern'&&lv<3){const c=[60,160,360][lv];L.splice(3,0,[['Brass Lantern','Silver Lantern','Sunstone Lantern'][lv]+' (+15% Light)',c,()=>{p.lantern=(p.lantern|0)+1;flash('Light radius increased!')}])}return L};
+// light-gear: rare "Glowing" affix on drops adds Light
+if(typeof dropMats=='function'){const _dmLT=dropMats;dropMats=function(e){_dmLT(e);if(Math.random()<(e.boss?.3:.004)&&(G.p.lantern|0)<3){G.p.lantern=(G.p.lantern|0)+1;flash('Found a Lantern! Light +15%')}}}
+/*END:k_light.js*/
 </script></body></html>
