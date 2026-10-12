@@ -19,7 +19,7 @@ function init(){
  blobT=canvasTex((g,n)=>{const gr=g.createRadialGradient(n/2,n/2,0,n/2,n/2,n/2);gr.addColorStop(0,'rgba(0,0,0,.75)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,n,n)});
  glowT=canvasTex((g,n)=>{const gr=g.createRadialGradient(n/2,n/2,0,n/2,n/2,n/2);gr.addColorStop(0,'#fff');gr.addColorStop(.25,'rgba(255,255,255,.7)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,n,n)});
  ptsGeo=new T3.BufferGeometry();const N=1500;ptsGeo.setAttribute('position',new T3.BufferAttribute(new Float32Array(N*3),3));ptsGeo.setAttribute('color',new T3.BufferAttribute(new Float32Array(N*3),3));
- pts=new T3.Points(ptsGeo,new T3.PointsMaterial({size:.16,map:glowT,vertexColors:true,transparent:true,blending:T3.AdditiveBlending,depthWrite:false}));pts.frustumCulled=false;S.add(pts);
+ pts=new T3.Points(ptsGeo,new T3.PointsMaterial({size:.1,map:glowT,vertexColors:true,transparent:true,blending:T3.AdditiveBlending,depthWrite:false}));pts.frustumCulled=false;S.add(pts);
  R3.ok=true;R3.three=T3;R3.scene=S;R3.cam=cam}
 // ---------- fog-of-war aware materials
 const FOW={value:null},MAPSZ={value:new T3.Vector2(128,128)};
@@ -30,10 +30,10 @@ function buildMap(){
  if(floorMesh){S.remove(floorMesh);floorMesh.geometry.dispose()}if(wallMesh){S.remove(wallMesh);wallMesh.geometry.dispose()}
  MAPSZ.value.set(MW,MH);fowData=new Uint8Array(MW*MH*4);fowTex=new T3.DataTexture(fowData,MW,MH,T3.RGBAFormat);fowTex.magFilter=T3.LinearFilter;fowTex.minFilter=T3.LinearFilter;fowTex.flipY=false;fowTex.needsUpdate=true;FOW.value=fowTex;
  const fk='f_'+FIDX[Math.min(G.floor,FIDX.length-1)];const ft=tex(fk)||tex('t_floor');let fm;
- if(ft){const t=ft.clone();t.wrapS=t.wrapT=T3.RepeatWrapping;t.repeat.set(MW/8,MH/8);t.needsUpdate=true;fm=new T3.MeshStandardMaterial({map:t,roughness:.9,metalness:0})}else fm=new T3.MeshStandardMaterial({color:0x333333,roughness:.9});
+ if(ft){const t=ft.clone();t.wrapS=t.wrapT=T3.RepeatWrapping;t.repeat.set(MW/5,MH/5);t.needsUpdate=true;fm=new T3.MeshStandardMaterial({map:t,roughness:.9,metalness:0})}else fm=new T3.MeshStandardMaterial({color:0x333333,roughness:.9});
  const fg=new T3.PlaneGeometry(MW,MH);fg.rotateX(-Math.PI/2);fg.translate(MW/2,0,MH/2);floorMesh=new T3.Mesh(fg,fowify(fm));floorMesh.receiveShadow=true;S.add(floorMesh);
  wallCells=[];for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){if(!G.m[y][x])continue;let n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const r=G.m[y+dy];if(r&&r[x+dx]===0)n=1}if(n)wallCells.push([x,y])}
- const wt=tex('t_wall');const wm=fowify(new T3.MeshStandardMaterial(wt?{map:wt,roughness:.95,bumpMap:wt,bumpScale:2}:{color:0x2a2622,roughness:.95}));
+ const wt=tex('t_wall');if(wt){wt.wrapS=wt.wrapT=T3.RepeatWrapping;wt.repeat.set(2,2)}const wm=fowify(new T3.MeshStandardMaterial(wt?{map:wt,roughness:.95,bumpMap:wt,bumpScale:2}:{color:0x2a2622,roughness:.95}));
  const WH=1.5;const wg=new T3.BoxGeometry(1,WH,1);wg.translate(0,WH/2,0);wallMesh=new T3.InstancedMesh(wg,wm,Math.max(1,wallCells.length));wallMesh.castShadow=wallMesh.receiveShadow=true;
  const m4=new T3.Matrix4();wallCells.forEach(([x,y],i)=>{m4.makeTranslation(x+.5,0,y+.5);wallMesh.setMatrixAt(i,m4)});wallMesh.count=wallCells.length;S.add(wallMesh);cutSt=new Uint8Array(wallCells.length);
  curM=G.m;mapSum=sumMap();R3.stats.walls=wallCells.length}
@@ -90,23 +90,25 @@ R3.frame=function(t,cm,SH){if(!R3.ok)return;R3.used=true;R3.frames++;gen++;gi=0;
  const tl=(G.torch||[]).map(tc=>[tc,(tc.x-p.x)**2+(tc.y-p.y)**2]).sort((a,b)=>a[1]-b[1]);
  torchL.forEach((L,i)=>{const e=tl[i];if(e&&e[1]<(18*T)**2&&G.seen[e[0].y/T|0]&&G.seen[e[0].y/T|0][e[0].x/T|0]){L.position.set(e[0].x/T,1.5,e[0].y/T+.7);L.intensity=16+Math.sin(t*11+i)*1.2+Math.sin(t*23+i*2)*.8}else L.intensity=0});
  const seen=o=>{const r=G.seen[o.y/T|0];return r&&r[o.x/T|0]};const vis=o=>{const r=G.seen[o.y/T|0];return r&&r[o.x/T|0]==2};
+ // biome dressing
+ for(const d of G.decor||[])if(seen(d)&&Math.abs(d.x-p.x)<700*(R3.zk||1)&&d.k!='web'){const sz=(typeof DECO_SZ!='undefined'&&DECO_SZ[d.k])||20;spr(d,'d_'+d.k,sz*1.3,d.x,d.y,{max:1});if(d.k=='mush'||d.k=='candles')glow(d.x,d.y-6,.4,.5,d.k=='mush'?'#50ffc0':'#ffb040',.35)}
  // torches
- for(const tc of G.torch||[])if(seen(tc)){spr(tc,'t_torch',26,tc.x,tc.y+10,{max:1,self:1});glow(tc.x,tc.y,1.1,.7+Math.sin(t*20+tc.x)*.08,'#ffa040',.9)}
+ for(const tc of G.torch||[])if(seen(tc)){spr(tc,'t_torch',18,tc.x,tc.y+10,{max:1,self:1});glow(tc.x,tc.y,1.1,.7+Math.sin(t*20+tc.x)*.08,'#ffa040',.9)}
  // bed / door / remains / props / events / waypoint
  if(G.bed&&seen(G.bed))spr(G.bed,'o_bed',96,G.bed.x,G.bed.y+40,{max:1});
- if(G.door&&seen(G.door)){spr(G.door,'o_door',46,G.door.x,G.door.y+18,{max:1,alpha:G.bossDead?1:.8,em:G.bossDead?new T3.Color(.35,.28,.1):null});if(G.bossDead)glow(G.door.x,G.door.y,1,2.2,'#ffd36a',.5)}
+ if(G.door&&seen(G.door)){spr(G.door,'o_door',92,G.door.x,G.door.y+18,{max:1,alpha:G.bossDead?1:.8,em:G.bossDead?new T3.Color(.35,.28,.1):null});if(G.bossDead)glow(G.door.x,G.door.y,1,2.2,'#ffd36a',.5)}
  for(const q of G.scavP||[])if(seen(q))spr(q,'o_remains',44,q.x,q.y+12,{max:1});
  const psz=typeof PSZ!='undefined'?PSZ:{};
  for(const pr of G.props||[])if(seen(pr)){spr(pr,'o_'+pr.k,psz[pr.k]||40,pr.x,pr.y+14,{max:1});if(pr.k=='crystal')glow(pr.x,pr.y,.6,1.6,'#60a0ff',.5+.15*Math.sin(t*3+pr.x))}
- for(const q of G.ev||[]){if(!seen(q))continue;if(q.k=='chest'||q.k=='mimic'||q.k=='vault'){if(q.used&&q.k=='mimic')continue;spr(q,'t_chest',q.k=='vault'?44:30,q.x,q.y+10,{max:1,alpha:q.used?.6:1});if(!q.used&&q.k=='vault')glow(q.x,q.y,.5,1.3,'#ffcc40',.5)}
+ for(const q of G.ev||[]){if(!seen(q))continue;if(q.k=='chest'||q.k=='mimic'||q.k=='vault'){if(q.used&&q.k=='mimic')continue;spr(q,'t_chest',q.k=='vault'?32:24,q.x,q.y+10,{max:1,alpha:q.used?.6:1});if(!q.used&&q.k=='vault')glow(q.x,q.y,.5,1.3,'#ffcc40',.5)}
   else if(q.k=='shrine'){spr(q,'o_shrine',46,q.x,q.y+12,{max:1,alpha:q.used?.6:1});glow(q.x,q.y,.8,1.8,q.used?'#666':'#ffeaa0',.5)}
   else if(q.k=='npc'&&!q.used){glow(q.x,q.y,.3,1,'#e0c0a0',.4)}}
  if(G.wp&&seen(G.wp)){disc(G.wp.x,G.wp.y,26,G.wp.on?'#78dcff':'#788ca8',.8,false);glow(G.wp.x,G.wp.y,.6,1.6,G.wp.on?'#78dcff':'#8090a0',.6)}
  // items (potions/gold)
  for(const i of G.items||[])if(seen(i)){if(i.k=='gold')glow(i.x,i.y,.25+Math.sin(t*4+i.x)*.05,.45,'#ffd34a',1);else{glow(i.x,i.y,.3+Math.sin(t*4+i.x)*.05,.55,'#ff3030',1)}}
- for(const tr of G.traps||[])disc(tr.x,tr.y,tr.r||20,tr.c||'#f80',.35,true);
+ for(const tr of G.traps||[])disc(tr.x,tr.y,Math.min(18,tr.r||14),tr.c||'#f80',.25,true);
  // zones
- for(const z of G.zones||[]){const a=z.k=='met'?.35+.3*Math.sin(t*20):.45;disc(z.x,z.y,z.r,col(z.c),a,false)}
+ for(const z of G.zones||[]){const a=z.k=='met'?.1+.12*Math.sin(t*20):.12;disc(z.x,z.y,z.r,col(z.c),a,false);disc(z.x,z.y,z.r,col(z.c),.2,true);for(let i=0;i<3;i++){const aa=t*1.7+i*2.1+z.x,rr=z.r*(.3+.5*((i*.37+t*.4)%1));glow(z.x+Math.cos(aa)*rr,z.y+Math.sin(aa)*rr,.15+((t+i)%1)*.4,.18,col(z.c),.5)}}
  for(const b of G.bombs||[]){glow(b.x,b.y,.2+(b.z||0)/T,.5,b.k=='fire'?'#ff5530':b.k=='sticky'?'#60ff60':'#ffffff',.9)}
  // enemies
  const VR=230*Math.max(1,R3.zk||1);let nE=0;for(const e of G.ens){const v=(Math.hypot(e.x-p.x,e.y-p.y)<VR&&(e.boss||nE++<70))||(p.ping>0&&Math.hypot(e.x-p.x,e.y-p.y)<(G.pingR||0));if(!v)continue;
@@ -116,7 +118,7 @@ R3.frame=function(t,cm,SH){if(!R3.ok)return;R3.used=true;R3.frames++;gen++;gi=0;
   spr(e,k,sz,e.x,e.y+r*.9,{max:1,flip,em,emI,alpha:e.ty=='wraith'?.8:1,lift:Math.abs(Math.sin(t*6+(e.ph||0)))*.04});
   if(e.boss)glow(e.x,e.y,.3,r/T*4,e.c,.25);if(p.ping>0&&Math.hypot(e.x-p.x,e.y-p.y)>200)disc(e.x,e.y,e.r+6,'#ff5555',.8,true);if(e.elite||e.mini)disc(e.x,e.y,e.r+6,e.mini?'#ff6600':AFX[e.elite[0]],.6,true)}
  // shots
- for(const s of G.shots||[]){glow(s.x,s.y,.7,s.big?1.1:s.f?.45:.7,s.dagger?'#cde':s.c||'#fff',1)}
+ for(const s of G.shots||[]){const c=s.dagger?'#cde':s.c||'#fff',z=s.big?.42:s.f?.2:.28;glow(s.x,s.y,.7,z,c,.55);glow(s.x,s.y,.7,z*.45,'#ffffff',.8);glow(s.x-s.vx*.03,s.y-s.vy*.03,.7,z*.6,c,.3)}
  // beams (loot rarity)
  for(const b of G.beams||[]){const a=Math.max(0,1-b.t/2.4);beamM(b.x,b.y,3.5+b.tier*1,.25+b.tier*.08,b.c,a*.55)}
  // Blue + Iky
@@ -134,13 +136,13 @@ R3.frame=function(t,cm,SH){if(!R3.ok)return;R3.used=true;R3.frames++;gen++;gi=0;
    const hx=d=='l'||d=='r'?(fl?-14:14)+sw*(fl?-1:1):d=='d'?16:-14,hy=d=='u'?-36:-30;const L=(WHELD[hw][1]||36)*.75;
    const ws=spr(R3.__w,WHELD[hw][0],L,p.x+hx,p.y+12,{max:1,flip:fl,rot:(hw=='gun'?-1.4:-.35)*(fl?-1:1),lift:(-hy-L*.5)/T});
    if(ws){ws.g.position.z+=d=='u'?-.08:.06;ws.bl.visible=false}}
-  if(p.spin>0)disc(p.x,p.y,60,'#ffffff',.6,true);
+  if(p.spin>0)disc(p.x,p.y,40,'#ffffff',.3,true);
   if(p.atgt){const g=p.atgt;disc(g.x,g.y,g.r+10,'#ff4444',.8,true)}
   if(p.ping>0)disc(p.x,p.y,G.pingR||0,'#78c8ff',Math.min(1,p.ping/4),true);
  }
  // particles
  const pa=ptsGeo.attributes.position.array,pc=ptsGeo.attributes.color.array;let n=0;const N=pa.length/3;
- for(const q of G.parts||[]){if(q.txt||q.h)continue;if(q.ring){disc(q.x,q.y,Math.max(1,q.ring*(1-q.t*2)),q.c,Math.min(1,q.t*2),true);continue}if(q.ln){for(let i=0;i<=8&&n<N;i++){const u=i/8;pa[n*3]=(q.x+(q.ln.x-q.x)*u)/T;pa[n*3+1]=.8;pa[n*3+2]=(q.y+(q.ln.y-q.y)*u)/T;const c=col(q.c);pc[n*3]=c.r;pc[n*3+1]=c.g;pc[n*3+2]=c.b;n++}continue}
+ for(const q of G.parts||[]){if(q.txt||q.h)continue;if(q.ring){disc(q.x,q.y,Math.max(1,q.ring*(1-q.t*2)),q.c,Math.min(.5,q.t*1.5),true);continue}if(q.ln){for(let i=0;i<=8&&n<N;i++){const u=i/8;pa[n*3]=(q.x+(q.ln.x-q.x)*u)/T;pa[n*3+1]=.8;pa[n*3+2]=(q.y+(q.ln.y-q.y)*u)/T;const c=col(q.c);pc[n*3]=c.r;pc[n*3+1]=c.g;pc[n*3+2]=c.b;n++}continue}
   if(n>=N)break;pa[n*3]=q.x/T;pa[n*3+1]=.5+(q.z||0)/T;pa[n*3+2]=q.y/T;const c=col(q.c);const a=Math.min(1,q.t*2);pc[n*3]=c.r*a;pc[n*3+1]=c.g*a;pc[n*3+2]=c.b*a;n++}
  ptsGeo.setDrawRange(0,n);ptsGeo.attributes.position.needsUpdate=ptsGeo.attributes.color.needsUpdate=true;
  // cleanup pools

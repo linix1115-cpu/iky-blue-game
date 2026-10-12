@@ -1,5 +1,5 @@
 // Death Dungeon service worker. Saves live in localStorage and are never touched here.
-const VERSION='v20261012135524';
+const VERSION='v20261012135936';
 const CACHE='iky-blue-'+VERSION;
 const SHELL=['./','./index.html','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./icons/apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)))});
