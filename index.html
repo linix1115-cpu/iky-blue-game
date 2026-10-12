@@ -2016,4 +2016,108 @@ const _gpRv20=galPlay;galPlay=function(g){if(g.id=='camp'){CAMP={t:0,ph:-1,rep:1
 const _pkTv20=pickT;pickT=function(e){const g=e.taunt;if(g&&!e.boss&&g.hp>0&&g.t>0&&(G.mins||[]).includes(g)&&dist(g,e)<320)return g;if(g)e.taunt=null;
  if(!e.boss&&!e.fac&&G.mins){const gl=G.mins.find(m=>m.big&&m.hp>0&&m.t>0&&dist(m,e)<160);if(gl){e.taunt=gl;return gl}}return _pkTv20(e)};
 /*END:e_taunt.js*/
+/*MOD:f_stageE.js*/
+// ===== v21 Stage E: talents+keystones, achievements+toasts, meta Soul Forge, run stats, save slots, difficulty, tutorial hints, AI bedroom crack
+SAVEK.push('tal','diff');
+const LS={g(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},s(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+// ---- difficulty
+const DIFF=[{n:'Story',hp:.6,dm:.5,xp:1,loot:0,sh:.7,c:'#8f8'},{n:'Normal',hp:1,dm:1,xp:1,loot:0,sh:1,c:'#ffe9a8'},{n:'Hard',hp:1.5,dm:1.4,xp:1.2,loot:12,sh:1.5,c:'#fa6'},{n:'Nightmare',hp:2.2,dm:1.9,xp:1.4,loot:25,sh:2.2,c:'#f55'}];
+let DSEL=LS.g('dd_diff',1);const dif=()=>DIFF[G&&G.p&&G.p.diff!=null?G.p.diff:1]||DIFF[1];
+// ---- meta (between runs)
+const META=Object.assign({sh:0,up:{},kills:0,runs:0,best:0,wins:0},LS.g('dd_meta',{}));const metaSave=()=>LS.s('dd_meta',META);
+const MUP=[{k:'hp',n:'Vitality',d:'+4% max HP',mx:5},{k:'dmg',n:'Might',d:'+3% damage',mx:5},{k:'xp',n:'Wisdom',d:'+5% XP',mx:5},{k:'gold',n:'Greed',d:'+10% gold',mx:5},{k:'bed',n:'Camper',d:'+1 starting bedroll',mx:3},{k:'pot',n:'Alchemist',d:'+1 starting potion',mx:3}];
+const mu=k=>META.up[k]||0,mCost=k=>10*(mu(k)+1)*(mu(k)+1);
+// ---- talents
+const TAL=[
+ {id:'m1',b:0,n:'Brute Force',d:'+8% damage'},{id:'m2',b:0,n:'Thick Hide',d:'+10% max HP'},{id:'m3',b:0,n:'Heavy Blows',d:'+8% damage'},{id:'m4',b:0,n:'Iron Will',d:'-6% damage taken'},
+ {id:'f1',b:1,n:'Fleet Foot',d:'+6% move speed'},{id:'f2',b:1,n:'Evasion',d:'+5 dodge'},{id:'f3',b:1,n:'Keen Eye',d:'+6 luck (crit & loot)'},{id:'f4',b:1,n:'Leech',d:'+2% life steal'},
+ {id:'a1',b:2,n:'Focus',d:'-8% skill cooldowns'},{id:'a2',b:2,n:'Insight',d:'+10% XP'},{id:'a3',b:2,n:'Haste Magic',d:'-8% skill cooldowns'},{id:'a4',b:2,n:'Spellweave',d:'+6% damage, +5% HP'},
+ {id:'kJ',b:0,ks:1,n:'KEYSTONE Juggernaut',d:'+30% max HP, -15% dmg taken, -10% speed'},
+ {id:'kB',b:1,ks:1,n:'KEYSTONE Bloodthirst',d:'+5% life steal, +10% dmg, take +12% dmg'},
+ {id:'kO',b:2,ks:1,n:'KEYSTONE Overload',d:'+25% damage, -25% cooldowns, -15% max HP'}];
+const TB_N=['MIGHT','FINESSE','ARCANE'],TB_C=['#f87','#8f8','#8cf'];
+const tl=id=>!!(G&&G.p&&G.p.tal&&G.p.tal[id]);
+function talPts(){const p=G.p;return Math.max(0,p.lvl-1-Object.keys(p.tal||{}).length)}
+function talCan(t){const p=G.p;if(tl(t.id)||talPts()<1)return false;if(t.ks){if(TAL.some(o=>o.ks&&tl(o.id)))return false;return TAL.filter(o=>o.b==t.b&&!o.ks&&tl(o.id)).length>=3}
+ const i=TAL.filter(o=>o.b==t.b&&!o.ks).indexOf(t);return i==0||tl(TAL.filter(o=>o.b==t.b&&!o.ks)[i-1].id)}
+function talTake(t){if(!talCan(t))return false;const p=G.p;p.tal=p.tal||{};p.tal[t.id]=1;recalc();sfx('level');if(t.ks)achMark('keystone');return true}
+function talDmg(){let m=1;if(tl('m1'))m*=1.08;if(tl('m3'))m*=1.08;if(tl('a4'))m*=1.06;if(tl('kB'))m*=1.1;if(tl('kO'))m*=1.25;return m*(1+.03*mu('dmg'))}
+function talTaken(){let m=1;if(tl('m4'))m*=.94;if(tl('kJ'))m*=.85;if(tl('kB'))m*=1.12;return m}
+function talCd(){let m=1;if(tl('a1'))m*=.92;if(tl('a3'))m*=.92;if(tl('kO'))m*=.75;return m}
+const _rcE=recalc;recalc=function(){_rcE();const p=G.p;if(!p)return;let h=1+.04*mu('hp');if(tl('m2'))h+=.1;if(tl('a4'))h+=.05;if(tl('kJ'))h+=.3;if(tl('kO'))h-=.15;p.mhp=Math.round(p.mhp*h);if(p.hp>p.mhp)p.hp=p.mhp;
+ if(tl('f1'))p.spd*=1.06;if(tl('kJ'))p.spd*=.9;if(tl('f2'))p.dodge=(p.dodge||0)+5;if(tl('f3'))p.luck+=6;if(tl('f4'))p.ls=(p.ls||0)+2;if(tl('kB'))p.ls=(p.ls||0)+5};
+const _dcE=dmgCalc;dmgCalc=function(e,m){const r=_dcE(e,m);r.d*=talDmg();return r};
+const _huE=hurt;hurt=function(d,src,shot){return _huE(d*dif().dm*talTaken(),src,shot)};
+const _gxE=gainXp;gainXp=function(n){let m=dif().xp*(1+.05*mu('xp'))*(tl('a2')?1.1:1);const l0=G.p.lvl;_gxE(Math.round(n*m));if(G.p.lvl>l0)hint('lvl','Level up! You earned a talent point. Open Menu > Talents to spend it.')};
+const _usE=useSkill;useSkill=function(id){const b=G.p.cds[id];const r=_usE.apply(this,arguments);const a=G.p.cds[id];if(a>0&&a!==b)G.p.cds[id]=a*talCd();return r};
+const _spE=spawn;spawn=function(ty,x,y,sc){_spE(ty,x,y,sc);const e=G.ens[G.ens.length-1];if(e&&G.p){const m=dif().hp;e.hp*=m;e.mhp*=m}};
+const _trE=tierRoll;tierRoll=function(b){return _trE((b||0)+(G&&G.p?dif().loot:0))};
+const _npE=newPlayer;newPlayer=function(){const p=_npE();p.tal={};p.diff=DSEL;p.bedroll=(p.bedroll||0)+mu('bed');p.pot=(p.pot||0)+mu('pot');return p};
+// ---- run stats + kills
+function rsReset(){Object.assign(RS,{dmg:0,crits:0,kills:0,t:0,gold0:0,bosses:0,elites:0,deaths:0,potions:0});G.metaDone=0;G.shGain=0}
+const _ngE=newGame;newGame=function(){_ngE();rsReset()};
+const _dmE=dropMats;dropMats=function(e){if(e&&!e._rsk&&G&&G.ens&&G.ens.includes(e)){e._rsk=1;RS.kills=(RS.kills||0)+1;META.kills++;if(e.boss)RS.bosses=(RS.bosses||0)+1;if(e.elite)RS.elites=(RS.elites||0)+1}
+ const g0=G.p.gold||0;const r=_dmE.apply(this,arguments);const gd=(G.p.gold||0)-g0;if(gd>0&&mu('gold'))G.p.gold+=Math.round(gd*.1*mu('gold'));return r};
+function runEnd(win){if(G.metaDone)return;G.metaDone=1;const p=G.p,d=dif();const g=Math.round((G.floor*6+p.lvl+(RS.bosses||0)*8+(win?40:0))*d.sh);G.shGain=g;META.sh+=g;META.runs++;META.best=Math.max(META.best,G.floor+(win?1:0));if(win){META.wins++;achMark('win');if(p.diff>=2)achMark('win_hard');if(p.diff>=3)achMark('win_nm')}metaSave();LS.s('dd_lastrun',{f:G.floor,l:p.lvl,k:RS.kills,t:RS.t,d:RS.dmg,g:p.gold||0,sh:g,win,diff:d.n})}
+// ---- achievements
+const ACH=[['first_blood','First Blood','Defeat your first monster'],['kills100','Centurion','Defeat 100 monsters (all runs)'],['kills1000','Slayer','Defeat 1000 monsters (all runs)'],['boss1','Gatekeeper','Defeat a floor boss'],
+ ['floor4','Halfway Down','Reach floor 4'],['floor8','The Deepest Dark','Reach floor 8'],['win','Death Defied','Clear the Death Dungeon'],['win_hard','Hardened','Clear on Hard or Nightmare'],['win_nm','Nightmare Walker','Clear on Nightmare'],
+ ['lvl10','Seasoned','Reach level 10'],['lvl20','Veteran','Reach level 20'],['keystone','Keystone','Take a keystone talent'],['portal_enter','Through the Rift','Enter an invasion portal'],['portal_clear','Rift Breaker','Defeat a portal guardian'],
+ ['bedroom','Hideaway','Find a hidden bedroom'],['unique','Legendary','Find a Unique item'],['gold1k','Hoarder','Hold 1000 gold'],['gallery10','Collector','Unlock 10 Gallery events'],['forge','Soul Smith','Buy a Soul Forge upgrade']];
+let TOAST=[];
+const _amE=achMark;achMark=function(k){const a=LS.g('dd_ach',{});const nw=!a[k];_amE(k);if(nw){const A=ACH.find(q=>q[0]==k);if(A){TOAST.push({n:A[1],d:A[2],t:4});try{sfx('chime')}catch(e){}}}};
+let _achT=0;function achCheck(){const p=G.p;if(!p)return;if(RS.kills>=1)achMark('first_blood');if(META.kills>=100)achMark('kills100');if(META.kills>=1000)achMark('kills1000');if(RS.bosses>=1)achMark('boss1');
+ if(G.floor>=3)achMark('floor4');if(G.floor>=7)achMark('floor8');if(p.lvl>=10)achMark('lvl10');if(p.lvl>=20)achMark('lvl20');if((p.gold||0)>=1000)achMark('gold1k');
+ if(G.bedR&&G.bedR.found)achMark('bedroom');if(p.box&&p.box.items.some(i=>i.uniq)||Object.values(p.eq||{}).some(i=>i&&i.uniq))achMark('unique');if(typeof GAL!='undefined'&&Object.keys(GAL.seen||{}).length>=10)achMark('gallery10')}
+// ---- save slots (slot data mirrored in dd_slotN; active one lives in ikySave)
+let SLOT=LS.g('dd_slot',1);if(!localStorage.getItem('dd_slot1')&&localStorage.getItem('ikySave')&&SLOT==1)try{localStorage.setItem('dd_slot1',localStorage.getItem('ikySave'))}catch(e){}
+const _dsE=doSave;doSave=function(){_dsE();try{localStorage.setItem('dd_slot'+SLOT,localStorage.getItem('ikySave'))}catch(e){}};
+function slotInfo(n){const s=LS.g('dd_slot'+n,null);return s&&s.p?'Floor '+(s.floor+1)+' Lv '+s.p.lvl+' '+(DIFF[s.p.diff!=null?s.p.diff:1]||DIFF[1]).n:'Empty'}
+function setSlot(n){SLOT=n;LS.s('dd_slot',n);const raw=localStorage.getItem('dd_slot'+n);try{if(raw){localStorage.setItem('ikySave',raw);save=JSON.parse(raw)}else{localStorage.removeItem('ikySave');save=null}}catch(e){save=null}}
+// ---- tutorial hints (first run only)
+const TUT=LS.g('dd_tut',{});let HINT=null;
+function hint(k,s){if(TUT[k]||(HINT&&HINT.k==k))return;TUT[k]=1;LS.s('dd_tut',TUT);HINT={k,s,t:6}}
+function tutTick(){const p=G.p;if(!p)return;const tc=touchOn();if(RS.t>.5)hint('move',tc?'Drag the left side of the screen to move Iky.':'Move with WASD. Aim with the mouse.');
+ if(RS.t>8&&TUT.move)hint('atk',tc?'Hold ATK to attack. Skills are on the numbered buttons; tap AUTO for Auto Play.':'Attack with Left Click / Space. Skills on 1-5. Shift to dodge.');
+ if(G.items&&G.items.length&&RS.t>14)hint('loot','Walk over loot to pick it up. Open the Item Box (BOX / I) to equip gear.');if(p.hp<p.mhp*.4)hint('pot','Low health! Drink a flask (Q / POT).');
+ if((G.ev||[]).some(q=>q.k=='portal'&&!q.used&&G.seen[q.y/T|0]&&G.seen[q.y/T|0][q.x/T|0]))hint('portal','A glowing invasion portal! Step in for a side-scroll stage with rare loot.');
+ if(RS.t>40)hint('menu','Tap Menu (top-right) / Esc to pause, save at save points, and view Talents & Achievements.')}
+// ---- auto play: treat a pinged cracked bedroom wall like a secret wall
+const _aiE=aiTick;aiTick=function(dt){const B=G.bedR;if(B&&!B.open&&B.rev&&!B.used&&(!G.sec||G.sec.open||!G.sec.rev)){const s0=G.sec;G.sec={x:B.x,y:B.y,open:0,rev:1,k:'bedcrack'};try{return _aiE(dt)}finally{G.sec=s0}}return _aiE(dt)};
+// ---- update hook
+const _upE=update;update=function(dt){const was=state;_upE(dt);if(TOAST.length){TOAST[0].t-=dt;if(TOAST[0].t<=0)TOAST.shift()}if(HINT){HINT.t-=dt;if(HINT.t<=0)HINT=null}
+ if(!G||!G.p)return;if(state=='play'){_achT-=dt;if(_achT<=0){_achT=.5;achCheck();tutTick()}}if((state=='over'||state=='win')&&!G.metaDone){achCheck();runEnd(state=='win')}};
+// ---- UI
+let UIV=null;// 'forge','ach' on title
+function drawPanel(tl_){X.fillStyle='rgba(6,6,16,.94)';X.fillRect(0,0,W,H);txt(tl_,W/2,52,30,'#ffe9a8')}
+function drawTalents(){const p=G.p;drawPanel('TALENTS');txt('Points: '+talPts()+'   (1 per level · keystone needs 3 in its branch · one keystone)',W/2,84,14,'#9cf');
+ for(let b=0;b<3;b++){const x=40+b*300;txt(TB_N[b],x+130,118,18,TB_C[b]);TAL.filter(t=>t.b==b).forEach((t,i)=>{const y=134+i*78,own=tl(t.id),can=talCan(t);
+  btn(x,y,260,66,null,()=>talTake(t));X.fillStyle=own?'rgba(60,90,50,.9)':can?'rgba(40,40,70,.9)':'rgba(25,25,30,.9)';X.fillRect(x,y,260,66);X.strokeStyle=t.ks?'#ffd36a':own?TB_C[b]:'#445';X.lineWidth=t.ks?3:1.5;X.strokeRect(x,y,260,66);
+  txt(t.n,x+130,y+24,t.ks?14:15,own?'#fff':can?'#dde':'#778');txt(t.d,x+130,y+46,t.ks?10:12,own?'#cfc':'#99a')})}
+ btn(W/2-90,H-56,180,44,'Back',()=>{PM.view='main'},{sz:16})}
+function drawAch(back){drawPanel('ACHIEVEMENTS');const a=LS.g('dd_ach',{});txt(ACH.filter(q=>a[q[0]]).length+' / '+ACH.length+' unlocked',W/2,82,14,'#9cf');
+ ACH.forEach((q,i)=>{const c=i%3,r=i/3|0,x=30+c*305,y=100+r*64,u=a[q[0]];X.fillStyle=u?'rgba(70,60,20,.9)':'rgba(25,25,30,.9)';X.fillRect(x,y,290,56);X.strokeStyle=u?'#ffd36a':'#334';X.strokeRect(x,y,290,56);txt((u?'\u2605 ':'')+q[1],x+145,y+22,15,u?'#ffe9a8':'#777');txt(q[2],x+145,y+42,11,u?'#ddd':'#666')});
+ btn(W/2-90,H-56,180,44,'Back',back,{sz:16})}
+function drawForge(){drawPanel('SOUL FORGE');txt('Soul Shards: '+META.sh+'   ·   earned at the end of every run (more on harder difficulty)',W/2,84,14,'#c9f');
+ MUP.forEach((u,i)=>{const c=i%2,r=i/2|0,x=110+c*380,y=110+r*110,lv=mu(u.k),mx=lv>=u.mx,cost=mCost(u.k),ok=!mx&&META.sh>=cost;
+  btn(x,y,360,96,null,()=>{if(ok){META.sh-=cost;META.up[u.k]=lv+1;metaSave();sfx('level');achMark('forge')}});X.fillStyle=ok?'rgba(50,30,70,.9)':'rgba(25,25,30,.9)';X.fillRect(x,y,360,96);X.strokeStyle=ok?'#c9f':'#445';X.strokeRect(x,y,360,96);
+  txt(u.n+'  '+lv+'/'+u.mx,x+180,y+28,18,'#eee');txt(u.d+' per rank',x+180,y+52,13,'#bbb');txt(mx?'MAXED':'Cost '+cost,x+180,y+78,14,ok?'#c9f':'#777')});
+ txt('Runs '+META.runs+' · Wins '+META.wins+' · Best floor '+META.best+' · Total kills '+META.kills,W/2,H-80,13,'#999');btn(W/2-90,H-56,180,44,'Back',()=>{UIV=null},{sz:16})}
+function fmtT(s){s=Math.round(s||0);return (s/60|0)+'m '+(s%60)+'s'}
+function drawRunStats(){const p=G.p,x=14,y=150;X.fillStyle='rgba(10,10,24,.9)';X.fillRect(x,y,300,200);X.strokeStyle='#ffd36a';X.strokeRect(x,y,300,200);txt('RUN STATS ('+dif().n+')',x+150,y+24,16,'#ffe9a8');
+ const L=[['Floor reached',G.floor+1],['Level',p.lvl],['Kills',RS.kills||0],['Elites / Bosses',(RS.elites||0)+' / '+(RS.bosses||0)],['Damage dealt',Math.round(RS.dmg||0)],['Time',fmtT(RS.t)],['Gold',p.gold||0],['Soul Shards earned','+'+(G.shGain||0)]];
+ L.forEach((l,i)=>{txt(l[0],x+90,y+50+i*18,13,'#bbb');txt(String(l[1]),x+235,y+50+i*18,13,'#fff')})}
+const _drE=draw;draw=function(t){if(state=='title'&&UIV){BT=[];if(UIV=='forge')drawForge();else drawAch(()=>{UIV=null});drawToast();return}
+ if(state=='pause'&&(PM.view=='talents'||PM.view=='ach')){BT=[];if(PM.view=='talents')drawTalents();else drawAch(()=>{PM.view='main'});drawToast();return}
+ _drE(t);
+ if(state=='title'){const x=20,w=210;txt('Save slot',x+w/2,268,13,'#9cf');for(let n=1;n<=3;n++)btn(x,276+(n-1)*36,w,32,n+': '+slotInfo(n),()=>setSlot(n),{sz:12,stroke:SLOT==n?'#ffd36a':'#556'});
+  btn(x,388,w,34,'Difficulty: '+DIFF[DSEL].n,()=>{DSEL=(DSEL+1)%4;LS.s('dd_diff',DSEL)},{sz:14,stroke:DIFF[DSEL].c});btn(x,426,w,34,'Soul Forge ('+META.sh+')',()=>{UIV='forge'},{sz:14,stroke:'#c9f'});btn(x,464,w,34,'Achievements',()=>{UIV='ach'},{sz:14,stroke:'#ffd36a'})}
+ if(state=='pause'&&PM.view=='main'){const x=W-200;btn(x,110,180,52,'Talents'+(talPts()?' ('+talPts()+')':''),()=>{PM.view='talents'},{sz:16,stroke:talPts()?'#ffd36a':'#8cf'});btn(x,172,180,52,'Achievements',()=>{PM.view='ach'},{sz:16,stroke:'#ffd36a'});
+  txt(dif().n+' · Slot '+SLOT,x+90,250,13,dif().c);txt('Kills '+(RS.kills||0)+' · '+fmtT(RS.t),x+90,270,12,'#bbb')}
+ if((state=='over'||state=='win')&&G&&G.p)drawRunStats();
+ if(state=='play'&&HINT){X.fillStyle='rgba(10,20,40,.85)';X.fillRect(W/2-300,74,600,40);X.strokeStyle='#8cf';X.strokeRect(W/2-300,74,600,40);txt('TIP: '+HINT.s,W/2,99,13,'#def')}
+ drawToast()};
+function drawToast(){const q=TOAST[0];if(!q)return;const a=Math.min(1,q.t*2,(4-q.t)*3);X.save();X.globalAlpha=Math.max(0,a);X.fillStyle='rgba(40,30,8,.94)';X.fillRect(W/2-170,12,340,54);X.strokeStyle='#ffd36a';X.lineWidth=2;X.strokeRect(W/2-170,12,340,54);txt('\u2605 Achievement: '+q.n,W/2,34,16,'#ffe9a8');txt(q.d,W/2,54,12,'#ddd');X.restore()}
+const _prE=press;press=function(c,k){if(state=='title'&&UIV){if(c=='Escape'||c=='Backspace')UIV=null;return}if(state=='pause'&&(PM.view=='talents'||PM.view=='ach')){if(c=='Escape')PM.view='main';return}if(state=='play'&&c=='KeyT'){openPause();PM.view='talents';return}return _prE(c,k)};
+/*END:f_stageE.js*/
 </script></body></html>
